@@ -13,7 +13,12 @@ using namespace std;
 
 static int MAX_LANG_FILE_SIZE = 5000000;
 static int MAX_STRING_SIZE = 100000;
+static int MAX_DIGIT_SIZE = 10;
 static int MAX_TOKEN_LIST_SIZE = 100000;
+static int MAX_EXPRESSION_SIZE = 200;
+static int MAX_OPERATOR_SIZE = 20;
+
+FILE * oFile;
 
 //returns 0 if failed, 1 if succeeded
 int appendChar(char* s, size_t size, char c) {
@@ -29,7 +34,7 @@ int appendChar(char* s, size_t size, char c) {
 void lowercase(char *str)
 {
     for(int i = 0; str[i]; i++){
-        str[i] = (char) tolower(str[i]);
+        str[i] = (char) std::tolower(str[i]);
     }
 }
 
@@ -61,6 +66,22 @@ bool isArithmeticOperator(char *str)
        strcmp(str,"%") == 0 ||
        strcmp(str,"(") == 0 ||
        strcmp(str,")") == 0){
+        return true;
+    }
+    else{
+        return false;
+    }
+}
+
+bool isArithmeticOperator(char c)
+{
+    if(c == '+' ||
+       c == '-' ||
+       c == '*' ||
+       c == '/' ||
+       c == '%' ||
+       c == '(' ||
+       c == '-'){
         return true;
     }
     else{
@@ -137,6 +158,91 @@ char* readFile(const char *filename)
     string[fsize] = '\0';
     
     return string;
+}
+
+void openOutputFile()
+{
+    oFile = fopen("language_run.cpp","w");
+    
+    fputs("#include <iostream>\n#include \"Includes/constants.h\"\n\nint main(){\n\n", oFile);
+    fputs("printf(\"%sGARY:\\n\", KMAG);\n\n", oFile);
+    fputs("long expression;\n", oFile);
+}
+
+void closeOutputFile()
+{
+    fputs("printf(\"%s\\n\", KNRM);\n\n", oFile);
+    fputs("\n}", oFile);
+    fclose(oFile);
+}
+
+char* evaluateExpression(const char *expr)
+{
+    char **num_stack = new char*[MAX_EXPRESSION_SIZE];
+    int num_stack_size = 0;
+    
+    int i = 0;
+    char *num = new char[MAX_DIGIT_SIZE];
+    
+    while(i <= strlen(expr)){
+        char c = expr[i];
+        
+        if(isArithmeticOperator(c)){
+            printf("%c\n",c);
+            
+            /* Append num */
+            char *numCopy = new char[MAX_DIGIT_SIZE];
+            strcpy(numCopy, num);
+            num_stack[num_stack_size] = numCopy; num_stack_size++;
+            
+            /* Append operator */
+            char *operatorString = new char[MAX_OPERATOR_SIZE];
+            operatorString[0] = c;
+            operatorString[1] = '\0';
+            num_stack[num_stack_size] = operatorString; num_stack_size++;
+            
+            /* Reset num */
+            strcpy(num,"");
+        }
+        else if(i == strlen(expr)){
+            /* Append num */
+            char *numCopy = new char[MAX_DIGIT_SIZE];
+            strcpy(numCopy, num);
+            num_stack[num_stack_size] = numCopy; num_stack_size++;
+            
+            /* Reset num */
+            strcpy(num,"");
+        }
+        else{
+            printf("NUMBER\n");
+            appendChar(num, MAX_DIGIT_SIZE, c);
+        }
+        
+        i++;
+    }
+    
+    printf("NUM_STACK: ");
+    for(int i = 0; i < num_stack_size; i++){
+        printf("|%s| ", num_stack[i]);
+    }
+    printf("\n");
+    
+    delete [] num;
+    delete [] num_stack;
+    return "Got it";
+    
+//    Py_SetProgramName("Gary");  /* optional but recommended */
+//    Py_Initialize();
+//    PyRun_SimpleString("from time import time,ctime\n"
+//                       "print 'Today is',ctime(time())\n");
+//    Py_Finalize();
+}
+
+void evaluateExpressionInC(const char *expr)
+{
+    char line[100];
+    sprintf(line, "expression = %s;\n", expr);
+    fputs(line, oFile);
 }
 
 char** lex(const char *filecontents, int* returnSize)
@@ -295,8 +401,9 @@ void parse(char **tokenList, int tokenListSize)
                 literal[strlen(literal)-1] = '\0';
                 
                 /* Print */
-                // TODO: Maybe write to external c source file and execute
-                printf("\tPROGRAM OUPUT: %s\n", literal);
+                char line[100];
+                sprintf(line, "printf(\"%s\\n\");\n", literal);
+                fputs(line, oFile);
                 delete [] literal;
             }
             else if(strcmp(prefix,"NUM") == 0){
@@ -308,8 +415,9 @@ void parse(char **tokenList, int tokenListSize)
                 literal[(tokenSize-5)] = '\0';
                 
                 /* Print */
-                // TODO: Maybe write to external c source file and execute
-                printf("\tPROGRAM OUPUT: %s\n", literal);
+                char line[100];
+                sprintf(line, "printf(\"%s\\n\");\n", literal);
+                fputs(line, oFile);
                 delete [] literal;
             }
             else if(strcmp(prefix,"EXPR") == 0){
@@ -320,9 +428,13 @@ void parse(char **tokenList, int tokenListSize)
                 memcpy(literal, token+6, (tokenSize-6));
                 literal[(tokenSize-6)] = '\0';
                 
+                /* Evaluate expression */
+                evaluateExpressionInC(literal);
+                
                 /* Print */
-                // TODO: Maybe write to external c source file and execute
-                printf("\tPROGRAM OUPUT: %s\n", literal);
+                char line[100];
+                sprintf(line, "printf(\"%%lu\\n\", expression);\n");
+                fputs(line, oFile);
                 delete [] literal;
             }
             i += 2;
@@ -335,6 +447,8 @@ void parse(char **tokenList, int tokenListSize)
 
 int main(int argc, const char * argv[]) {
 
+    openOutputFile();
+    
     /* Loop through each command line argument */
     for (int nArg=1; nArg < argc; nArg++){
         char *filecontents = readFile(argv[nArg]);
@@ -345,10 +459,9 @@ int main(int argc, const char * argv[]) {
         }
     }
     
-    char x[] = "TUTORIALS POINT";
-    printf("\n%s\n", x);
-    lowercase(x);
-    printf("\n%s\n", x);
+    closeOutputFile();
+    system("g++ language_run.cpp -o gary_executable");
+    system("./gary_executable");
 
     return 0;
 }

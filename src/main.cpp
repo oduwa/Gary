@@ -357,6 +357,24 @@ char** lex(const char *filecontents, int* returnSize)
             
             isExpression = false;
         }
+        else if(strcmp(token,"increment") == 0){
+            tokenList[tokenListSize++] = "INCREMENT";
+            strcpy(token,"");
+        }
+        else if(strcmp(token,"+") == 0 && prevChar == '+' && !varStarted){
+            
+            printf("XXXXXX\n");
+            
+            /* Create and add token for variable name */
+            char strbuff[1000];
+            sprintf(strbuff, "PLUSPLUS");
+            tokenList[tokenListSize] = new char[MAX_STRING_SIZE];
+            strcpy(tokenList[tokenListSize], strbuff);
+            tokenListSize++;
+            
+            /* Reset token */
+            strcpy(token,"");
+        }
         else if(strcmp(token,"<") == 0 && prevChar == '<' && isLookingAtString == false){
             printf("\t1\n");
             /* Detect variable name and add to tokens list */
@@ -537,7 +555,7 @@ char** lex(const char *filecontents, int* returnSize)
             strcpy(token,"");
         }
         else if(strcmp(token,"<") == 0 && filecontents[i-1] != '<' && filecontents[i+1] != '<' && isLookingAtString == false){
-            printf("\t2\n");
+
             /* Make delimiter for == expression */
             if(strcmp(expressionLiteral,"") != 0 && !isExpression){
                 
@@ -574,7 +592,7 @@ char** lex(const char *filecontents, int* returnSize)
             strcpy(token,"");
         }
         else if(strcmp(token,">") == 0 && isLookingAtString == false){
-            printf("\t2\n");
+
             /* Make delimiter for == expression */
             if(strcmp(expressionLiteral,"") != 0 && !isExpression){
                 
@@ -658,6 +676,22 @@ char** lex(const char *filecontents, int* returnSize)
         }
         else if(strcmp(token,"then") == 0){
             tokenList[tokenListSize++] = "THEN";
+            strcpy(token,"");
+        }
+        else if(strcmp(token,"else") == 0){
+            tokenList[tokenListSize++] = "ELSE";
+            strcpy(token,"");
+        }
+        else if(strcmp(token,"elif") == 0){
+            tokenList[tokenListSize++] = "ELSEIF";
+            strcpy(token,"");
+        }
+        else if(strcmp(token,"while") == 0){
+            tokenList[tokenListSize++] = "WHILE";
+            strcpy(token,"");
+        }
+        else if(strcmp(token,"endwhile") == 0){
+            tokenList[tokenListSize++] = "ENDWHILE";
             strcpy(token,"");
         }
         else if(isDigit(token) == true){
@@ -820,7 +854,7 @@ void parse(char **tokenList, int tokenListSize)
             }
             i += 2;
         }
-        else if(strcmp(prefixForVarToken,"VAR") == 0 && strcmp(tokenList[i+1],"ASSIGN") == 0){
+        else if(strcmp(prefixForVarToken,"VAR") == 0 && ((i+2) <= tokenListSize-1) && strcmp(tokenList[i+1],"ASSIGN") == 0){
             /* Get var:@<> token prefix */
             char varToken[100];
             strcpy(varToken, tokenList[i]);
@@ -829,12 +863,29 @@ void parse(char **tokenList, int tokenListSize)
             varname++; // Move past @ to start of variable name
             free(varTokenSplit);
             
-            /* Get STRING:<> token prefix */
+            /* Get next token prefix */
             char strbuff[10000];
             strcpy(strbuff, tokenList[i+2]);
             char **split = str_split(strbuff, ':');
             char *prefix = split[0];
             free(split);
+            
+            char **split2;
+            char *prefix2;
+            if((i+3) <= tokenListSize-1){
+                char strbuff2[1000];
+                strcpy(strbuff2, tokenList[i+3]);
+                char **split2 = str_split(strbuff2, ':');
+                prefix2 = split2[0];
+                free(split2);
+                if(strcmp(prefix2, "VAR") == 0){
+                    printf("FOUND IT |%s| preceding |%s|\n", prefix2, prefix);
+                }
+            }
+            else{
+                printf("PIZZA");
+            }
+            
             
             if(strcmp(prefix,"STRING") == 0){
                 /* Get string as substring of token */
@@ -847,10 +898,10 @@ void parse(char **tokenList, int tokenListSize)
                 /* Print */
                 char line[100];
                 if(isVariableDefined(varname) == false){
-                    sprintf(line, "char *%s = \"%s\";\n", varname, value);
+                    sprintf(line, "char *%s = \"%s\"", varname, value);
                 }
                 else{
-                    sprintf(line, "%s = \"%s\";\n", varname, value);
+                    sprintf(line, "%s = \"%s\"", varname, value);
                 }
                 fputs(line, oFile);
                 delete [] value;
@@ -869,10 +920,10 @@ void parse(char **tokenList, int tokenListSize)
                 /* Print */
                 char line[100];
                 if(isVariableDefined(varname) == false){
-                    sprintf(line, "long %s = %s;\n", varname, value);
+                    sprintf(line, "long %s = %s", varname, value);
                 }
                 else{
-                    sprintf(line, "%s = %s;\n", varname, value);
+                    sprintf(line, "%s = %s", varname, value);
                 }
                 fputs(line, oFile);
                 delete [] value;
@@ -891,10 +942,10 @@ void parse(char **tokenList, int tokenListSize)
                 /* Print */
                 char line[100];
                 if(isVariableDefined(varname) == false){
-                    sprintf(line, "long %s = %s;\n", varname, value);
+                    sprintf(line, "long %s = %s", varname, value);
                 }
                 else{
-                    sprintf(line, "%s = %s;\n", varname, value);
+                    sprintf(line, "%s = %s", varname, value);
                 }
                 fputs(line, oFile);
                 delete [] value;
@@ -920,10 +971,10 @@ void parse(char **tokenList, int tokenListSize)
                     declarationType = "long";
                 }
                 if(isVariableDefined(varname) == false){
-                    sprintf(line, "%s %s = %s;\n", declarationType, varname, value+1);
+                    sprintf(line, "%s %s = %s", declarationType, varname, value+1);
                 }
                 else{
-                    sprintf(line, "%s = %s;\n", varname, value);
+                    sprintf(line, "%s = %s", varname, value);
                 }
                 fputs(line, oFile);
                 delete [] value;
@@ -931,9 +982,36 @@ void parse(char **tokenList, int tokenListSize)
                 /* Store with corresponding type in symbols table */
                 symbols_type_table[varname] = "NUM";
             }
+            
+            /* For assignments of the form <var> = <expr/num/var> + <var> */
+    
+            if(strcmp(prefix2,"VAR") == 0 && strcmp(prefix,"EXPR") == 0){
+                /* Get varname as substring of token */
+                char *varname = new char[MAX_DIGIT_SIZE];
+                char *token = tokenList[i+3];
+                int tokenSize = strlen(token);
+                memcpy(varname, token+5, (tokenSize-5));
+                varname[(tokenSize-5)] = '\0';
+                
+                /* Write to file */
+                char line[100];
+                sprintf(line, "%s", varname+1);
+                fputs(line, oFile);
+                
+                delete [] varname;
+                i++;
+                printf("HHHHHH");
+            }
+            
+            fputs(";\n", oFile);
+            
             i += 3;
         }
-        else if(strcmp(tokenList[i],"IF") == 0 && strcmp(tokenList[i+4],"THEN") == 0){
+        else if((strcmp(tokenList[i],"IF") == 0 || strcmp(tokenList[i],"ELSEIF") == 0) && strcmp(tokenList[i+4],"THEN") == 0){
+            
+            if(strcmp(tokenList[i],"ELSEIF") == 0){
+                fputs("} ", oFile);
+            }
             
             /* Left hand side. Get token prefix */
             char strbuff[100];
@@ -941,7 +1019,7 @@ void parse(char **tokenList, int tokenListSize)
             char **lhsTokenSplit = str_split(strbuff, ':');
             char *lhsTokenPrefix = lhsTokenSplit[0];
             free(lhsTokenSplit);
-            printf("LHS: %s\n", lhsTokenPrefix);
+            //printf("LHS: %s\n", lhsTokenPrefix);
            
             /* Right hand side. Get token prefix */
             char strbuff2[100];
@@ -949,7 +1027,7 @@ void parse(char **tokenList, int tokenListSize)
             char **rhsTokenSplit = str_split(strbuff2, ':');
             char *rhsTokenPrefix = rhsTokenSplit[0];
             free(rhsTokenSplit);
-            printf("RHS: %s\n", rhsTokenPrefix);
+            //printf("RHS: %s\n", rhsTokenPrefix);
             
             /* Create new if-scope */
             fputs("if(", oFile);
@@ -971,6 +1049,105 @@ void parse(char **tokenList, int tokenListSize)
                 int lhsTokenSize = strlen(lhsToken);
                 memcpy(lhsValue, lhsToken+5, (lhsTokenSize-5));
                 lhsValue[(lhsTokenSize-5)] = '\0';
+            }
+            
+            /* Get right value of expression */
+            if(strcmp(rhsTokenPrefix,"NUM") == 0){
+                rhsValue = new char[MAX_DIGIT_SIZE];
+                char *rhsToken = tokenList[i+3];
+                int rhsTokenSize = strlen(rhsToken);
+                memcpy(rhsValue, rhsToken+5, (rhsTokenSize-5));
+                rhsValue[(rhsTokenSize-5)] = '\0';
+            }
+            else if(strcmp(rhsTokenPrefix,"VAR") == 0){
+                rhsValue = new char[MAX_DIGIT_SIZE];
+                char *rhsToken = tokenList[i+3];
+                int rhsTokenSize = strlen(rhsToken);
+                memcpy(rhsValue, rhsToken+5, (rhsTokenSize-5));
+                rhsValue[(rhsTokenSize-5)] = '\0';
+            }
+            
+            //printf("LV: %s\n", lhsValue);
+            //printf("RV: %s\n", rhsValue+1);
+            
+            /* Create expression based on operator */
+            char condition[100];
+            if(strcmp(tokenList[i+2],"EQUALITY") == 0){
+                sprintf(condition, "%s == %s", lhsValue, rhsValue+1);
+            }
+            else if(strcmp(tokenList[i+2],"LESSOREQUALS") == 0){
+                sprintf(condition, "%s <= %s", lhsValue, rhsValue+1);
+            }
+            else if(strcmp(tokenList[i+2],"GREATEROREQUALS") == 0){
+                sprintf(condition, "%s >= %s", lhsValue, rhsValue+1);
+            }
+            else if(strcmp(tokenList[i+2],"NOTEQUALS") == 0){
+                sprintf(condition, "%s != %s", lhsValue, rhsValue+1);
+            }
+            else if(strcmp(tokenList[i+2],"GREATER") == 0){
+                sprintf(condition, "%s > %s", lhsValue, rhsValue+1);
+            }
+            else if(strcmp(tokenList[i+2],"LESS") == 0){
+                sprintf(condition, "%s < %s", lhsValue, rhsValue+1);
+            }
+            fputs(condition, oFile);
+            
+            fputs("){\n", oFile);
+            i += 5;
+        }
+        else if(strcmp(tokenList[i],"ELSE") == 0){
+            /* Create else-scope */
+            fputs("} ", oFile);
+            fputs("else{\n", oFile);
+            i++;
+        }
+        else if(strcmp(tokenList[i],"ENDIF") == 0){
+            fputs("}\n", oFile);
+            i++;
+        }
+        else if((strcmp(tokenList[i],"WHILE") == 0) && strcmp(tokenList[i+4],"THEN") == 0){
+            
+            if(strcmp(tokenList[i],"ELSEIF") == 0){
+                fputs("} ", oFile);
+            }
+            
+            /* Left hand side. Get token prefix */
+            char strbuff[100];
+            strcpy(strbuff, tokenList[i+1]);
+            char **lhsTokenSplit = str_split(strbuff, ':');
+            char *lhsTokenPrefix = lhsTokenSplit[0];
+            free(lhsTokenSplit);
+            printf("LHS: %s\n", lhsTokenPrefix);
+            
+            /* Right hand side. Get token prefix */
+            char strbuff2[100];
+            strcpy(strbuff2, tokenList[i+3]);
+            char **rhsTokenSplit = str_split(strbuff2, ':');
+            char *rhsTokenPrefix = rhsTokenSplit[0];
+            free(rhsTokenSplit);
+            printf("RHS: %s\n", rhsTokenPrefix);
+            
+            /* Create new if-scope */
+            fputs("while(", oFile);
+            
+            /** Create conditional expression based on type of lhs and rhs **/
+            /* Get left value of expression */
+            char *lhsValue;
+            char *rhsValue;
+            if(strcmp(lhsTokenPrefix,"NUM") == 0){
+                lhsValue = new char[MAX_DIGIT_SIZE];
+                char *lhsToken = tokenList[i+1];
+                int lhsTokenSize = strlen(lhsToken);
+                memcpy(lhsValue, lhsToken+5, (lhsTokenSize-5));
+                lhsValue[(lhsTokenSize-5)] = '\0';
+            }
+            else if(strcmp(lhsTokenPrefix,"VAR") == 0){
+                lhsValue = new char[MAX_DIGIT_SIZE];
+                char *lhsToken = tokenList[i+1];
+                int lhsTokenSize = strlen(lhsToken);
+                memcpy(lhsValue, lhsToken+5, (lhsTokenSize-5));
+                lhsValue[(lhsTokenSize-5)] = '\0';
+                lhsValue++;
             }
             
             /* Get right value of expression */
@@ -1017,9 +1194,34 @@ void parse(char **tokenList, int tokenListSize)
             fputs("){\n", oFile);
             i += 5;
         }
-        else if(strcmp(tokenList[i],"ENDIF") == 0){
+        else if(strcmp(tokenList[i],"ENDWHILE") == 0){
             fputs("}\n", oFile);
             i++;
+        }
+        else if(strcmp(tokenList[i],"INCREMENT") == 0){
+            /* Get prefix */
+            char *nextTokenPrefix = new char[MAX_DIGIT_SIZE];
+            char *nextToken = tokenList[i+1];
+            int nextTokenSize = strlen(nextToken);
+            memcpy(nextTokenPrefix, nextToken, 3);
+            nextTokenPrefix[3] = '\0';
+            
+            if(strcmp(nextTokenPrefix,"VAR") == 0){
+                /* Get string as substring of token */
+                char *varname = new char[MAX_DIGIT_SIZE];
+                char *token = tokenList[i+1];
+                int tokenSize = strlen(token);
+                memcpy(varname, token+5, (tokenSize-5));
+                varname[(tokenSize-5)] = '\0';
+                
+                /* Increment value */
+                char line[100];
+                sprintf(line, "%s++;\n", varname+1);
+                fputs(line, oFile);
+            }
+
+            
+            i += 2;
         }
         else{
             i++;

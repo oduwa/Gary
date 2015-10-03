@@ -8,6 +8,7 @@
 
 #include <iostream>
 #include <assert.h>
+#include <map>
 
 using namespace std;
 
@@ -18,7 +19,11 @@ static int MAX_TOKEN_LIST_SIZE = 100000;
 static int MAX_EXPRESSION_SIZE = 200;
 static int MAX_OPERATOR_SIZE = 20;
 
+char *variable_syntax_denoter = "@";
+char *assignment_syntax_denoter = "<<";
+
 FILE * oFile;
+std::map<char*, char*> symbols_type_table;
 
 //returns 0 if failed, 1 if succeeded
 int appendChar(char* s, size_t size, char c) {
@@ -137,6 +142,31 @@ char** str_split(char* a_str, const char a_delim)
     return result;
 }
 
+char* lookupVariableType(char* varname)
+{
+    typedef std::map<char*, char*>::iterator it_type;
+    for(it_type iterator = symbols_type_table.begin(); iterator != symbols_type_table.end(); iterator++) {
+        // iterator->first = key
+        // iterator->second = value
+        if(strcmp(iterator->first, varname) == 0){
+            return iterator->second;
+        }
+    }
+}
+
+bool isVariableDefined(char *varname)
+{
+    typedef std::map<char*, char*>::iterator it_type;
+    for(it_type iterator = symbols_type_table.begin(); iterator != symbols_type_table.end(); iterator++) {
+        // iterator->first = key
+        // iterator->second = value
+        if(strcmp(iterator->first, varname) == 0){
+            return true;
+        }
+    }
+    
+    return false;
+}
 
 char* readFile(const char *filename)
 {
@@ -259,9 +289,11 @@ char** lex(const char *filecontents, int* returnSize)
     char *stringLiteral = new char[MAX_STRING_SIZE];
     char *expressionLiteral = new char[MAX_STRING_SIZE];
     char *number = new char[MAX_STRING_SIZE];
+    char *var = new char[MAX_STRING_SIZE];
     
     bool isLookingAtString = false;
     bool isExpression = false;
+    bool varStarted = false;
     
     char **tokenList = new char*[MAX_TOKEN_LIST_SIZE];
     int tokenListSize = 0;
@@ -270,10 +302,17 @@ char** lex(const char *filecontents, int* returnSize)
     for(int i = 0; i < size; i++){
         /* increment token */
         appendChar(token, MAX_LANG_FILE_SIZE, filecontents[i]);
-        //printf("TOKEN: %s\n", token);
+        char prevChar;
+        if(i > 0){
+            prevChar = filecontents[i-1];
+        }
+        else{
+            prevChar = '\0';
+        }
+        printf("TOKEN: %s\n", token);
         
         /* lex. Should reset the token variable each time we find a valid token. */
-        if(strcmp(token," ") == 0){
+        if(strcmp(token," ") == 0 || strcmp(token,"\t") == 0){
             if(isLookingAtString != true){
                 strcpy(token,"");
             }
@@ -293,7 +332,64 @@ char** lex(const char *filecontents, int* returnSize)
                 strcpy(expressionLiteral,"");
             }
             else if(strcmp(expressionLiteral,"") != 0 && !isExpression){
-                printf("\t\tNUMB: %s\n", expressionLiteral);
+
+                /* Create and add token for string literal */
+                char strbuff[1000];
+                sprintf(strbuff, "NUM: %s", expressionLiteral);
+                tokenList[tokenListSize] = new char[MAX_STRING_SIZE];
+                strcpy(tokenList[tokenListSize], strbuff);
+                tokenListSize++;
+                
+                strcpy(expressionLiteral,"");
+            }
+            else if(strcmp(var,"") != 0){
+                /* Create and add token for variable name */
+                char strbuff[1000];
+                sprintf(strbuff, "VAR: %s", var);
+                tokenList[tokenListSize] = new char[MAX_STRING_SIZE];
+                strcpy(tokenList[tokenListSize], strbuff);
+                tokenListSize++;
+                
+                /* Reset var */
+                strcpy(var,"");
+                varStarted = false;
+            }
+            
+            isExpression = false;
+        }
+        else if(strcmp(token,"<") == 0 && prevChar == '<' && isLookingAtString == false){
+            printf("\t1\n");
+            /* Detect variable name and add to tokens list */
+            if(strcmp(var,"") != 0){
+                /* Create and add token for variable name */
+                //printf("var: %s strlen: %d\n", var, strlen(var));
+                var[strlen(var)-1] = '\0';// COMMENT OUT IF ASSIGNMENT OPERTOR IS ONLY ONE CHARACTER
+                char strbuff[1000];
+                sprintf(strbuff, "VAR:%s", var);
+                tokenList[tokenListSize] = new char[MAX_STRING_SIZE];
+                strcpy(tokenList[tokenListSize], strbuff);
+                tokenListSize++;
+                
+                /* Reset var */
+                strcpy(var,"");
+                varStarted = false;
+            }
+            
+            /* Create and add token for variable assignment */
+            char strbuff[7];
+            sprintf(strbuff, "ASSIGN");
+            tokenList[tokenListSize] = new char[MAX_STRING_SIZE];
+            strcpy(tokenList[tokenListSize], strbuff);
+            tokenListSize++;
+            
+            /* Reset token */
+            strcpy(token,"");
+            
+        }
+        else if(strcmp(token,"<") == 0 && filecontents[i+1] == '=' && isLookingAtString == false){
+            
+            /* Make delimiter for == expression */
+            if(strcmp(expressionLiteral,"") != 0 && !isExpression){
                 
                 /* Create and add token for string literal */
                 char strbuff[1000];
@@ -304,8 +400,215 @@ char** lex(const char *filecontents, int* returnSize)
                 
                 strcpy(expressionLiteral,"");
             }
+            else if(strcmp(var,"") != 0 && varStarted){
+                /* Create and add token for variable name */
+                char strbuff[1000];
+                sprintf(strbuff, "VAR: %s", var);
+                tokenList[tokenListSize] = new char[MAX_STRING_SIZE];
+                strcpy(tokenList[tokenListSize], strbuff);
+                tokenListSize++;
+                
+                /* Reset var */
+                strcpy(var,"");
+                varStarted = false;
+            }
             
-            isExpression = false;
+            /* Create and add token for <= */
+            char strbuff[7];
+            sprintf(strbuff, "LESSOREQUALS");
+            tokenList[tokenListSize] = new char[MAX_STRING_SIZE];
+            strcpy(tokenList[tokenListSize], strbuff);
+            tokenListSize++;
+            
+            /* Reset token */
+            strcpy(token,"");
+        }
+        else if(strcmp(token,">") == 0 && filecontents[i+1] == '=' && isLookingAtString == false){
+            
+            /* Make delimiter for == expression */
+            if(strcmp(expressionLiteral,"") != 0 && !isExpression){
+                
+                /* Create and add token for string literal */
+                char strbuff[1000];
+                sprintf(strbuff, "NUM: %s", expressionLiteral);
+                tokenList[tokenListSize] = new char[MAX_STRING_SIZE];
+                strcpy(tokenList[tokenListSize], strbuff);
+                tokenListSize++;
+                
+                strcpy(expressionLiteral,"");
+            }
+            else if(strcmp(var,"") != 0 && varStarted){
+                /* Create and add token for variable name */
+                char strbuff[1000];
+                sprintf(strbuff, "VAR: %s", var);
+                tokenList[tokenListSize] = new char[MAX_STRING_SIZE];
+                strcpy(tokenList[tokenListSize], strbuff);
+                tokenListSize++;
+                
+                /* Reset var */
+                strcpy(var,"");
+                varStarted = false;
+            }
+            
+            /* Create and add token for >= */
+            char strbuff[7];
+            sprintf(strbuff, "GREATEROREQUALS");
+            tokenList[tokenListSize] = new char[MAX_STRING_SIZE];
+            strcpy(tokenList[tokenListSize], strbuff);
+            tokenListSize++;
+            
+            /* Reset token */
+            strcpy(token,"");
+        }
+        else if(strcmp(token,"!") == 0 && filecontents[i+1] == '=' && isLookingAtString == false){
+            
+            /* Make delimiter for == expression */
+            if(strcmp(expressionLiteral,"") != 0 && !isExpression){
+                
+                /* Create and add token for string literal */
+                char strbuff[1000];
+                sprintf(strbuff, "NUM: %s", expressionLiteral);
+                tokenList[tokenListSize] = new char[MAX_STRING_SIZE];
+                strcpy(tokenList[tokenListSize], strbuff);
+                tokenListSize++;
+                
+                strcpy(expressionLiteral,"");
+            }
+            else if(strcmp(var,"") != 0 && varStarted){
+                /* Create and add token for variable name */
+                char strbuff[1000];
+                sprintf(strbuff, "VAR: %s", var);
+                tokenList[tokenListSize] = new char[MAX_STRING_SIZE];
+                strcpy(tokenList[tokenListSize], strbuff);
+                tokenListSize++;
+                
+                /* Reset var */
+                strcpy(var,"");
+                varStarted = false;
+            }
+            
+            /* Create and add token for != */
+            char strbuff[7];
+            sprintf(strbuff, "NOTEQUALS");
+            tokenList[tokenListSize] = new char[MAX_STRING_SIZE];
+            strcpy(tokenList[tokenListSize], strbuff);
+            tokenListSize++;
+            
+            /* Reset token */
+            strcpy(token,"");
+        }
+        else if(strcmp(token,"=") == 0 && isLookingAtString == false){
+            
+            /* Make delimiter for == expression */
+            if(strcmp(expressionLiteral,"") != 0 && !isExpression){
+                
+                /* Create and add token for string literal */
+                char strbuff[1000];
+                sprintf(strbuff, "NUM: %s", expressionLiteral);
+                tokenList[tokenListSize] = new char[MAX_STRING_SIZE];
+                strcpy(tokenList[tokenListSize], strbuff);
+                tokenListSize++;
+                
+                strcpy(expressionLiteral,"");
+            }
+            else if(strcmp(var,"") != 0 && varStarted){
+                /* Create and add token for variable name */
+                char strbuff[1000];
+                sprintf(strbuff, "VAR: %s", var);
+                tokenList[tokenListSize] = new char[MAX_STRING_SIZE];
+                strcpy(tokenList[tokenListSize], strbuff);
+                tokenListSize++;
+                
+                /* Reset var */
+                strcpy(var,"");
+                varStarted = false;
+            }
+            
+            if(prevChar == '='){
+                /* Create and add token for variable assignment */
+                char strbuff[7];
+                sprintf(strbuff, "EQUALITY");
+                tokenList[tokenListSize] = new char[MAX_STRING_SIZE];
+                strcpy(tokenList[tokenListSize], strbuff);
+                tokenListSize++;
+            }
+            
+            /* Reset token */
+            strcpy(token,"");
+        }
+        else if(strcmp(token,"<") == 0 && filecontents[i-1] != '<' && filecontents[i+1] != '<' && isLookingAtString == false){
+            printf("\t2\n");
+            /* Make delimiter for == expression */
+            if(strcmp(expressionLiteral,"") != 0 && !isExpression){
+                
+                /* Create and add token for string literal */
+                char strbuff[1000];
+                sprintf(strbuff, "NUM: %s", expressionLiteral);
+                tokenList[tokenListSize] = new char[MAX_STRING_SIZE];
+                strcpy(tokenList[tokenListSize], strbuff);
+                tokenListSize++;
+                
+                strcpy(expressionLiteral,"");
+            }
+            else if(strcmp(var,"") != 0 && varStarted){
+                /* Create and add token for variable name */
+                char strbuff[1000];
+                sprintf(strbuff, "VAR: %s", var);
+                tokenList[tokenListSize] = new char[MAX_STRING_SIZE];
+                strcpy(tokenList[tokenListSize], strbuff);
+                tokenListSize++;
+                
+                /* Reset var */
+                strcpy(var,"");
+                varStarted = false;
+            }
+            
+            /* Create and add token for != */
+            char strbuff[7];
+            sprintf(strbuff, "LESS");
+            tokenList[tokenListSize] = new char[MAX_STRING_SIZE];
+            strcpy(tokenList[tokenListSize], strbuff);
+            tokenListSize++;
+            
+            /* Reset token */
+            strcpy(token,"");
+        }
+        else if(strcmp(token,">") == 0 && isLookingAtString == false){
+            printf("\t2\n");
+            /* Make delimiter for == expression */
+            if(strcmp(expressionLiteral,"") != 0 && !isExpression){
+                
+                /* Create and add token for string literal */
+                char strbuff[1000];
+                sprintf(strbuff, "NUM: %s", expressionLiteral);
+                tokenList[tokenListSize] = new char[MAX_STRING_SIZE];
+                strcpy(tokenList[tokenListSize], strbuff);
+                tokenListSize++;
+                
+                strcpy(expressionLiteral,"");
+            }
+            else if(strcmp(var,"") != 0 && varStarted){
+                /* Create and add token for variable name */
+                char strbuff[1000];
+                sprintf(strbuff, "VAR: %s", var);
+                tokenList[tokenListSize] = new char[MAX_STRING_SIZE];
+                strcpy(tokenList[tokenListSize], strbuff);
+                tokenListSize++;
+                
+                /* Reset var */
+                strcpy(var,"");
+                varStarted = false;
+            }
+            
+            /* Create and add token for != */
+            char strbuff[7];
+            sprintf(strbuff, "GREATER");
+            tokenList[tokenListSize] = new char[MAX_STRING_SIZE];
+            strcpy(tokenList[tokenListSize], strbuff);
+            tokenListSize++;
+            
+            /* Reset token */
+            strcpy(token,"");
         }
         else if(strcmp(token,"disp") == 0){
             /* DISP FOUND */
@@ -316,6 +619,45 @@ char** lex(const char *filecontents, int* returnSize)
             /* DISP FOUND */
             // TODO: Maybe display compile error
             tokenList[tokenListSize++] = "DISP";
+            strcpy(token,"");
+        }
+        else if(strcmp(token,"endif") == 0){
+            tokenList[tokenListSize++] = "ENDIF";
+            strcpy(token,"");
+        }
+        else if(strcmp(token,"if") == 0){
+            tokenList[tokenListSize++] = "IF";
+            strcpy(token,"");
+        }
+        else if(filecontents[i] == 't' && filecontents[i+1] == 'h' && filecontents[i+2] == 'e' && filecontents[i+3] == 'n'){
+            
+            /* Make delimiter for == expression */
+            if(strcmp(expressionLiteral,"") != 0 && !isExpression){
+                
+                /* Create and add token for string literal */
+                char strbuff[1000];
+                sprintf(strbuff, "NUM: %s", expressionLiteral);
+                tokenList[tokenListSize] = new char[MAX_STRING_SIZE];
+                strcpy(tokenList[tokenListSize], strbuff);
+                tokenListSize++;
+                
+                strcpy(expressionLiteral,"");
+            }
+            else if(strcmp(var,"") != 0 && varStarted){
+                /* Create and add token for variable name */
+                char strbuff[1000];
+                sprintf(strbuff, "VAR: %s", var);
+                tokenList[tokenListSize] = new char[MAX_STRING_SIZE];
+                strcpy(tokenList[tokenListSize], strbuff);
+                tokenListSize++;
+                
+                /* Reset var */
+                strcpy(var,"");
+                varStarted = false;
+            }
+        }
+        else if(strcmp(token,"then") == 0){
+            tokenList[tokenListSize++] = "THEN";
             strcpy(token,"");
         }
         else if(isDigit(token) == true){
@@ -357,6 +699,15 @@ char** lex(const char *filecontents, int* returnSize)
             strcat(stringLiteral, token);
             strcpy(token,"");
         }
+        else if(strcmp(token,variable_syntax_denoter) == 0 && !isLookingAtString){
+            varStarted = true;
+            strcat(var, token);
+            strcpy(token,"");
+        }
+        else if(varStarted){
+            strcat(var, token);
+            strcpy(token,"");
+        }
         
         strcpy(lowercaseToken, token);
         lowercase(lowercaseToken);
@@ -368,6 +719,7 @@ char** lex(const char *filecontents, int* returnSize)
     delete [] stringLiteral;
     delete [] expressionLiteral;
     delete [] number;
+    delete [] var;
     
     *returnSize = tokenListSize;
     return tokenList;
@@ -383,6 +735,11 @@ void parse(char **tokenList, int tokenListSize)
     
     int i = 0;
     while(i < tokenListSize){
+        
+        char prefixForVarToken[4];
+        memcpy(prefixForVarToken, tokenList[i], 3);
+        prefixForVarToken[3] = '\0';
+        
         if(strcmp(tokenList[i],"DISP") == 0){
             /* Get token prefix */
             char strbuff[10000];
@@ -437,7 +794,232 @@ void parse(char **tokenList, int tokenListSize)
                 fputs(line, oFile);
                 delete [] literal;
             }
+            else if(strcmp(prefix,"VAR") == 0){
+                /* Get string as substring of token to print */
+                char *varname = new char[MAX_STRING_SIZE];
+                char *token = tokenList[i+1];
+                int tokenSize = strlen(token);
+                memcpy(varname, token+5, (tokenSize-5));
+                varname[(tokenSize-5)] = '\0';
+
+                /* Print */
+                char *vartype = lookupVariableType(varname+1);
+                printf("PRINT VARTYPE: %s\n", vartype);
+                if(strcmp(vartype,"STRING") == 0){
+                    char line[100];
+                    sprintf(line, "printf(\"%%s\\n\", %s);\n", varname+1);
+                    fputs(line, oFile);
+                }
+                else if(strcmp(vartype,"NUM") == 0){
+                    char line[100];
+                    sprintf(line, "printf(\"%%lu\\n\", %s);\n", varname+1);
+                    fputs(line, oFile);
+                }
+                
+                delete [] varname;
+            }
             i += 2;
+        }
+        else if(strcmp(prefixForVarToken,"VAR") == 0 && strcmp(tokenList[i+1],"ASSIGN") == 0){
+            /* Get var:@<> token prefix */
+            char varToken[100];
+            strcpy(varToken, tokenList[i]);
+            char **varTokenSplit = str_split(varToken, ':');
+            char *varname = varTokenSplit[1];
+            varname++; // Move past @ to start of variable name
+            free(varTokenSplit);
+            
+            /* Get STRING:<> token prefix */
+            char strbuff[10000];
+            strcpy(strbuff, tokenList[i+2]);
+            char **split = str_split(strbuff, ':');
+            char *prefix = split[0];
+            free(split);
+            
+            if(strcmp(prefix,"STRING") == 0){
+                /* Get string as substring of token */
+                char *value = new char[MAX_STRING_SIZE];
+                char *token = tokenList[i+2];
+                int tokenSize = strlen(token);
+                memcpy(value, token+9, (tokenSize-9)+1);
+                value[strlen(value)-1] = '\0';
+                
+                /* Print */
+                char line[100];
+                if(isVariableDefined(varname) == false){
+                    sprintf(line, "char *%s = \"%s\";\n", varname, value);
+                }
+                else{
+                    sprintf(line, "%s = \"%s\";\n", varname, value);
+                }
+                fputs(line, oFile);
+                delete [] value;
+                
+                /* Store with corresponding type in symbols table */
+                symbols_type_table[varname] = "STRING";
+            }
+            else if(strcmp(prefix,"NUM") == 0){
+                /* Get number as substring of token */
+                char *value = new char[MAX_DIGIT_SIZE];
+                char *token = tokenList[i+2];
+                int tokenSize = strlen(token);
+                memcpy(value, token+5, (tokenSize-5));
+                value[(tokenSize-5)] = '\0';
+                
+                /* Print */
+                char line[100];
+                if(isVariableDefined(varname) == false){
+                    sprintf(line, "long %s = %s;\n", varname, value);
+                }
+                else{
+                    sprintf(line, "%s = %s;\n", varname, value);
+                }
+                fputs(line, oFile);
+                delete [] value;
+                
+                /* Store with corresponding type in symbols table */
+                symbols_type_table[varname] = "NUM";
+            }
+            else if(strcmp(prefix,"EXPR") == 0){
+                /* Get string as substring of token */
+                char *value = new char[MAX_STRING_SIZE];
+                char *token = tokenList[i+2];
+                int tokenSize = strlen(token);
+                memcpy(value, token+6, (tokenSize-6));
+                value[(tokenSize-6)] = '\0';
+                
+                /* Print */
+                char line[100];
+                if(isVariableDefined(varname) == false){
+                    sprintf(line, "long %s = %s;\n", varname, value);
+                }
+                else{
+                    sprintf(line, "%s = %s;\n", varname, value);
+                }
+                fputs(line, oFile);
+                delete [] value;
+                
+                /* Store with corresponding type in symbols table */
+                symbols_type_table[varname] = "NUM";
+            }
+            else if(strcmp(prefix,"VAR") == 0){
+                /* Get string as substring of token */
+                char *value = new char[MAX_DIGIT_SIZE];
+                char *token = tokenList[i+2];
+                int tokenSize = strlen(token);
+                memcpy(value, token+5, (tokenSize-5));
+                value[(tokenSize-5)] = '\0';
+                
+                /* Print */
+                char line[100];
+                char *declarationType;
+                if(strcmp(lookupVariableType(value+1), "STRING") == 0){
+                    declarationType = "char*";
+                }
+                else if(strcmp(lookupVariableType(value+1), "NUM") == 0){
+                    declarationType = "long";
+                }
+                if(isVariableDefined(varname) == false){
+                    sprintf(line, "%s %s = %s;\n", declarationType, varname, value+1);
+                }
+                else{
+                    sprintf(line, "%s = %s;\n", varname, value);
+                }
+                fputs(line, oFile);
+                delete [] value;
+                
+                /* Store with corresponding type in symbols table */
+                symbols_type_table[varname] = "NUM";
+            }
+            i += 3;
+        }
+        else if(strcmp(tokenList[i],"IF") == 0 && strcmp(tokenList[i+4],"THEN") == 0){
+            
+            /* Left hand side. Get token prefix */
+            char strbuff[100];
+            strcpy(strbuff, tokenList[i+1]);
+            char **lhsTokenSplit = str_split(strbuff, ':');
+            char *lhsTokenPrefix = lhsTokenSplit[0];
+            free(lhsTokenSplit);
+            printf("LHS: %s\n", lhsTokenPrefix);
+           
+            /* Right hand side. Get token prefix */
+            char strbuff2[100];
+            strcpy(strbuff2, tokenList[i+3]);
+            char **rhsTokenSplit = str_split(strbuff2, ':');
+            char *rhsTokenPrefix = rhsTokenSplit[0];
+            free(rhsTokenSplit);
+            printf("RHS: %s\n", rhsTokenPrefix);
+            
+            /* Create new if-scope */
+            fputs("if(", oFile);
+            
+            /** Create conditional expression based on type of lhs and rhs **/
+            /* Get left value of expression */
+            char *lhsValue;
+            char *rhsValue;
+            if(strcmp(lhsTokenPrefix,"NUM") == 0){
+                lhsValue = new char[MAX_DIGIT_SIZE];
+                char *lhsToken = tokenList[i+1];
+                int lhsTokenSize = strlen(lhsToken);
+                memcpy(lhsValue, lhsToken+5, (lhsTokenSize-5));
+                lhsValue[(lhsTokenSize-5)] = '\0';
+            }
+            else if(strcmp(lhsTokenPrefix,"VAR") == 0){
+                lhsValue = new char[MAX_DIGIT_SIZE];
+                char *lhsToken = tokenList[i+1];
+                int lhsTokenSize = strlen(lhsToken);
+                memcpy(lhsValue, lhsToken+5, (lhsTokenSize-5));
+                lhsValue[(lhsTokenSize-5)] = '\0';
+            }
+            
+            /* Get right value of expression */
+            if(strcmp(rhsTokenPrefix,"NUM") == 0){
+                rhsValue = new char[MAX_DIGIT_SIZE];
+                char *rhsToken = tokenList[i+3];
+                int rhsTokenSize = strlen(rhsToken);
+                memcpy(rhsValue, rhsToken+5, (rhsTokenSize-5));
+                rhsValue[(rhsTokenSize-5)] = '\0';
+            }
+            else if(strcmp(rhsTokenPrefix,"VAR") == 0){
+                rhsValue = new char[MAX_DIGIT_SIZE];
+                char *rhsToken = tokenList[i+3];
+                int rhsTokenSize = strlen(rhsToken);
+                memcpy(rhsValue, rhsToken+5, (rhsTokenSize-5));
+                rhsValue[(rhsTokenSize-5)] = '\0';
+            }
+            
+            printf("LV: %s\n", lhsValue);
+            printf("RV: %s\n", rhsValue+1);
+            
+            /* Create expression based on operator */
+            char condition[100];
+            if(strcmp(tokenList[i+2],"EQUALITY") == 0){
+                sprintf(condition, "%s == %s", lhsValue, rhsValue+1);
+            }
+            else if(strcmp(tokenList[i+2],"LESSOREQUALS") == 0){
+                sprintf(condition, "%s <= %s", lhsValue, rhsValue+1);
+            }
+            else if(strcmp(tokenList[i+2],"GREATEROREQUALS") == 0){
+                sprintf(condition, "%s >= %s", lhsValue, rhsValue+1);
+            }
+            else if(strcmp(tokenList[i+2],"NOTEQUALS") == 0){
+                sprintf(condition, "%s != %s", lhsValue, rhsValue+1);
+            }
+            else if(strcmp(tokenList[i+2],"GREATER") == 0){
+                sprintf(condition, "%s > %s", lhsValue, rhsValue+1);
+            }
+            else if(strcmp(tokenList[i+2],"LESS") == 0){
+                sprintf(condition, "%s < %s", lhsValue, rhsValue+1);
+            }
+            fputs(condition, oFile);
+            
+            fputs("){\n", oFile);
+            i += 5;
+        }
+        else if(strcmp(tokenList[i],"ENDIF") == 0){
+            fputs("}\n", oFile);
+            i++;
         }
         else{
             i++;

@@ -1,9 +1,7 @@
 # Gary
 Simple programming language for general purpose scripts
 
-# Getting Started
-
-## Variable Types and Assignment
+### Variable Types and Assignment
 Values are assigned to variables using the << operator. Gary is a weakly-typed language. Basically, this means that you do not need to specify the type of a variable when you declare it. Its type is inferred from the value it is assigned.
 
 ```Python
@@ -13,14 +11,14 @@ Values are assigned to variables using the << operator. Gary is a weakly-typed l
 @height << 6.1;
 ```
 
-## Output
+### Output
 Use the ```Python disp``` keyword to print to the console.
 
 ```Python
 disp "Hello World!";
 ```
 
-## Conditionals
+### Conditionals
 Gary provides if, else and elseif-statements as shown below
 
 ```Python
@@ -33,7 +31,7 @@ else
 endif;
 ```
 
-## Iteration
+### Iteration
 Gary supports iteration via while-loops. An expression is specified as a condition after the *while* keyword. As long as this expression evalueates to 1, the code within the while loop will be executed.
 
 ``` Python
@@ -47,7 +45,7 @@ endwhile
 (*The ```increment``` and ```decrement``` keywords are the Gary equivalent of ++ and -- in other mainstream languages*)
 
 
-## Functions
+### Functions
 With Gary, functions are declared using the ```func``` keyword, followed by the function name and a list of arguments between brackets and the the function return type. After the function is defined, its scope should be closed using the ```endfunc``` keyword.
 
 ``` Python

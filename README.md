@@ -47,4 +47,16 @@ endwhile
 (*The ```increment``` and ```decrement``` keywords are the Gary equivalent of ++ and -- in other mainstream languages*)
 
 
+## Functions
+With Gary, functions are declared using the ```func``` keyword, followed by the function name and a list of arguments between brackets and the the function return type. After the function is defined, its scope should be closed using the ```endfunc``` keyword.
+
+``` Python
+func myFunc() void:
+	disp "printing from my function"; 
+endfunc
+
+myFunc();
+```
+
+Functions don’t need to be declared or defined before they’re called. They just need to be defined at some point.
 

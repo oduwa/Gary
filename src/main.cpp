@@ -1000,7 +1000,9 @@ void parse(char **tokenList, int tokenListSize)
                 
                 delete [] varname;
                 i++;
-                printf("HHHHHH");
+                
+                /* Store with corresponding type in symbols table */
+                symbols_type_table[varname] = "NUM";
             }
             
             fputs(";\n", oFile);

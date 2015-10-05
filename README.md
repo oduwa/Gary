@@ -12,7 +12,7 @@ Values are assigned to variables using the << operator. Gary is a weakly-typed l
 ```
 
 ### Output
-Use the ```Python disp``` keyword to print to the console.
+Use the ```disp``` keyword to print to the console.
 
 ```Python
 disp "Hello World!";

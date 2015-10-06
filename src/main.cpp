@@ -22,8 +22,10 @@ static int MAX_OPERATOR_SIZE = 20;
 char *variable_syntax_denoter = "@";
 char *assignment_syntax_denoter = "<<";
 
-FILE * oFile;
+FILE *main_output;
+FILE *functions_output;
 std::map<char*, char*> symbols_type_table;
+std::map<char*, char*> function_symbol_table;
 
 //returns 0 if failed, 1 if succeeded
 int appendChar(char* s, size_t size, char c) {
@@ -68,9 +70,9 @@ bool isArithmeticOperator(char *str)
        strcmp(str,"-") == 0 ||
        strcmp(str,"*") == 0 ||
        strcmp(str,"/") == 0 ||
-       strcmp(str,"%") == 0 ||
+       strcmp(str,"%") == 0/* ||
        strcmp(str,"(") == 0 ||
-       strcmp(str,")") == 0){
+       strcmp(str,")") == 0*/){
         return true;
     }
     else{
@@ -192,18 +194,24 @@ char* readFile(const char *filename)
 
 void openOutputFile()
 {
-    oFile = fopen("language_run.cpp","w");
+    main_output = fopen("language_run.cpp","w");
     
-    fputs("#include <iostream>\n#include \"Includes/constants.h\"\n\nint main(){\n\n", oFile);
-    fputs("printf(\"%sGARY:\\n\", KMAG);\n\n", oFile);
-    fputs("long expression;\n", oFile);
+    fputs("#include <iostream>\n#include \"Includes/constants.h\"\n#include \"interpreted_functions.h\"\n\nint main(){\n\n", main_output);
+    fputs("printf(\"%sGARY:\\n\", KMAG);\n\n", main_output);
+    fputs("long expression;\n", main_output);
+    
+    
+    functions_output = fopen("interpreted_functions.h","w");
+    fputs("#include <iostream>\n#include \"Includes/constants.h\"\n\n", functions_output);
 }
 
 void closeOutputFile()
 {
-    fputs("printf(\"%s\\n\", KNRM);\n\n", oFile);
-    fputs("\n}", oFile);
-    fclose(oFile);
+    fputs("printf(\"%s\\n\", KNRM);\n\n", main_output);
+    fputs("\n}", main_output);
+    fclose(main_output);
+
+    fclose(functions_output);
 }
 
 char* evaluateExpression(const char *expr)
@@ -272,7 +280,7 @@ void evaluateExpressionInC(const char *expr)
 {
     char line[100];
     sprintf(line, "expression = %s;\n", expr);
-    fputs(line, oFile);
+    fputs(line, main_output);
 }
 
 char** lex(const char *filecontents, int* returnSize)
@@ -290,10 +298,15 @@ char** lex(const char *filecontents, int* returnSize)
     char *expressionLiteral = new char[MAX_STRING_SIZE];
     char *number = new char[MAX_STRING_SIZE];
     char *var = new char[MAX_STRING_SIZE];
+    char *funcName = new char[MAX_STRING_SIZE];
+    char *funcRet = new char[MAX_DIGIT_SIZE];
     
     bool isLookingAtString = false;
     bool isExpression = false;
     bool varStarted = false;
+    //bool funcNameStarted = false;
+    bool funcDeclStarted = false;
+    bool funcRetStarted = false;
     
     char **tokenList = new char*[MAX_TOKEN_LIST_SIZE];
     int tokenListSize = 0;
@@ -738,8 +751,66 @@ char** lex(const char *filecontents, int* returnSize)
             strcat(var, token);
             strcpy(token,"");
         }
+        else if(strcmp(token,"endfunc") == 0 && !isLookingAtString){
+            tokenList[tokenListSize++] = "FUNCTION_CLOSE";
+            strcpy(token,"");
+            strcpy(funcName,"");
+            funcDeclStarted = false;
+        }
+        else if(strcmp(token,"func") == 0 && !isLookingAtString){
+            tokenList[tokenListSize++] = "FUNCTION_DECL";
+            strcpy(token,"");
+            funcDeclStarted = true;
+        }
+        else if(strcmp(token,")") == 0 && !isLookingAtString && funcDeclStarted){
+            /* Append closing bracket */
+            strcat(funcName, token);
+            
+            /* Create and add token for function name */
+            char strbuff[1000];
+            sprintf(strbuff, "%s", funcName);
+            tokenList[tokenListSize] = new char[MAX_STRING_SIZE];
+            strcpy(tokenList[tokenListSize], strbuff);
+            tokenListSize++;
+            
+            /* Reset */
+            strcpy(funcName,"");
+            strcpy(token,"");
+            funcDeclStarted = false;
+            funcRetStarted = true;
+        }
+        else if(filecontents[i] == ')' && !isLookingAtString){
+            /* Create and add token for function call */
+            char strbuff[1000];
+            sprintf(strbuff, "CALL:%s", token);
+            tokenList[tokenListSize] = new char[100];
+            strcpy(tokenList[tokenListSize], strbuff);
+            tokenListSize++;
+            
+            /* Reset */
+            strcpy(token,"");
+        }
+        else if(filecontents[i+1] == ':' && !isLookingAtString && funcRetStarted){
+            /* Create and add token for function return type */
+            char strbuff[1000];
+            sprintf(strbuff, "RET:%s", token);
+            tokenList[tokenListSize] = new char[MAX_STRING_SIZE];
+            strcpy(tokenList[tokenListSize], strbuff);
+            tokenListSize++;
+            
+            /* Reset */
+            strcpy(token,"");
+            funcRetStarted = false;
+            
+            /* Skip next char which will be ":" */
+            i++;
+        }
         else if(varStarted){
             strcat(var, token);
+            strcpy(token,"");
+        }
+        else if(funcDeclStarted && !funcRetStarted){
+            strcat(funcName, token);
             strcpy(token,"");
         }
         
@@ -754,6 +825,8 @@ char** lex(const char *filecontents, int* returnSize)
     delete [] expressionLiteral;
     delete [] number;
     delete [] var;
+    delete [] funcName;
+    delete [] funcRet;
     
     *returnSize = tokenListSize;
     return tokenList;
@@ -767,6 +840,8 @@ void parse(char **tokenList, int tokenListSize)
     }
     printf("\n");
     
+    bool isWritingFunction = false;
+    
     int i = 0;
     while(i < tokenListSize){
         
@@ -775,6 +850,9 @@ void parse(char **tokenList, int tokenListSize)
         prefixForVarToken[3] = '\0';
         
         if(strcmp(tokenList[i],"DISP") == 0){
+            FILE *fileOutput;
+            fileOutput = (isWritingFunction == false) ? main_output : functions_output;
+            
             /* Get token prefix */
             char strbuff[10000];
             strcpy(strbuff, tokenList[i+1]);
@@ -794,7 +872,7 @@ void parse(char **tokenList, int tokenListSize)
                 /* Print */
                 char line[100];
                 sprintf(line, "printf(\"%s\\n\");\n", literal);
-                fputs(line, oFile);
+                fputs(line, fileOutput);
                 delete [] literal;
             }
             else if(strcmp(prefix,"NUM") == 0){
@@ -808,7 +886,7 @@ void parse(char **tokenList, int tokenListSize)
                 /* Print */
                 char line[100];
                 sprintf(line, "printf(\"%s\\n\");\n", literal);
-                fputs(line, oFile);
+                fputs(line, fileOutput);
                 delete [] literal;
             }
             else if(strcmp(prefix,"EXPR") == 0){
@@ -825,7 +903,7 @@ void parse(char **tokenList, int tokenListSize)
                 /* Print */
                 char line[100];
                 sprintf(line, "printf(\"%%lu\\n\", expression);\n");
-                fputs(line, oFile);
+                fputs(line, fileOutput);
                 delete [] literal;
             }
             else if(strcmp(prefix,"VAR") == 0){
@@ -842,12 +920,12 @@ void parse(char **tokenList, int tokenListSize)
                 if(strcmp(vartype,"STRING") == 0){
                     char line[100];
                     sprintf(line, "printf(\"%%s\\n\", %s);\n", varname+1);
-                    fputs(line, oFile);
+                    fputs(line, fileOutput);
                 }
                 else if(strcmp(vartype,"NUM") == 0){
                     char line[100];
                     sprintf(line, "printf(\"%%lu\\n\", %s);\n", varname+1);
-                    fputs(line, oFile);
+                    fputs(line, fileOutput);
                 }
                 
                 delete [] varname;
@@ -855,6 +933,9 @@ void parse(char **tokenList, int tokenListSize)
             i += 2;
         }
         else if(strcmp(prefixForVarToken,"VAR") == 0 && ((i+2) <= tokenListSize-1) && strcmp(tokenList[i+1],"ASSIGN") == 0){
+            FILE *fileOutput;
+            fileOutput = (isWritingFunction == false) ? main_output : functions_output;
+            
             /* Get var:@<> token prefix */
             char varToken[100];
             strcpy(varToken, tokenList[i]);
@@ -903,7 +984,7 @@ void parse(char **tokenList, int tokenListSize)
                 else{
                     sprintf(line, "%s = \"%s\"", varname, value);
                 }
-                fputs(line, oFile);
+                fputs(line, fileOutput);
                 delete [] value;
                 
                 /* Store with corresponding type in symbols table */
@@ -925,7 +1006,7 @@ void parse(char **tokenList, int tokenListSize)
                 else{
                     sprintf(line, "%s = %s", varname, value);
                 }
-                fputs(line, oFile);
+                fputs(line, fileOutput);
                 delete [] value;
                 
                 /* Store with corresponding type in symbols table */
@@ -947,7 +1028,7 @@ void parse(char **tokenList, int tokenListSize)
                 else{
                     sprintf(line, "%s = %s", varname, value);
                 }
-                fputs(line, oFile);
+                fputs(line, fileOutput);
                 delete [] value;
                 
                 /* Store with corresponding type in symbols table */
@@ -976,7 +1057,7 @@ void parse(char **tokenList, int tokenListSize)
                 else{
                     sprintf(line, "%s = %s", varname, value);
                 }
-                fputs(line, oFile);
+                fputs(line, fileOutput);
                 delete [] value;
                 
                 /* Store with corresponding type in symbols table */
@@ -984,7 +1065,6 @@ void parse(char **tokenList, int tokenListSize)
             }
             
             /* For assignments of the form <var> = <expr/num/var> + <var> */
-    
             if(strcmp(prefix2,"VAR") == 0 && strcmp(prefix,"EXPR") == 0){
                 /* Get varname as substring of token */
                 char *varname = new char[MAX_DIGIT_SIZE];
@@ -996,7 +1076,7 @@ void parse(char **tokenList, int tokenListSize)
                 /* Write to file */
                 char line[100];
                 sprintf(line, "%s", varname+1);
-                fputs(line, oFile);
+                fputs(line, fileOutput);
                 
                 delete [] varname;
                 i++;
@@ -1005,14 +1085,17 @@ void parse(char **tokenList, int tokenListSize)
                 symbols_type_table[varname] = "NUM";
             }
             
-            fputs(";\n", oFile);
+            fputs(";\n", fileOutput);
             
             i += 3;
         }
         else if((strcmp(tokenList[i],"IF") == 0 || strcmp(tokenList[i],"ELSEIF") == 0) && strcmp(tokenList[i+4],"THEN") == 0){
             
+            FILE *fileOutput;
+            fileOutput = (isWritingFunction == false) ? main_output : functions_output;
+            
             if(strcmp(tokenList[i],"ELSEIF") == 0){
-                fputs("} ", oFile);
+                fputs("} ", fileOutput);
             }
             
             /* Left hand side. Get token prefix */
@@ -1032,7 +1115,7 @@ void parse(char **tokenList, int tokenListSize)
             //printf("RHS: %s\n", rhsTokenPrefix);
             
             /* Create new if-scope */
-            fputs("if(", oFile);
+            fputs("if(", fileOutput);
             
             /** Create conditional expression based on type of lhs and rhs **/
             /* Get left value of expression */
@@ -1092,25 +1175,34 @@ void parse(char **tokenList, int tokenListSize)
             else if(strcmp(tokenList[i+2],"LESS") == 0){
                 sprintf(condition, "%s < %s", lhsValue, rhsValue+1);
             }
-            fputs(condition, oFile);
+            fputs(condition, fileOutput);
             
-            fputs("){\n", oFile);
+            fputs("){\n", fileOutput);
             i += 5;
         }
         else if(strcmp(tokenList[i],"ELSE") == 0){
+            FILE *fileOutput;
+            fileOutput = (isWritingFunction == false) ? main_output : functions_output;
+            
             /* Create else-scope */
-            fputs("} ", oFile);
-            fputs("else{\n", oFile);
+            fputs("} ", fileOutput);
+            fputs("else{\n", fileOutput);
             i++;
         }
         else if(strcmp(tokenList[i],"ENDIF") == 0){
-            fputs("}\n", oFile);
+            FILE *fileOutput;
+            fileOutput = (isWritingFunction == false) ? main_output : functions_output;
+            
+            fputs("}\n", fileOutput);
             i++;
         }
         else if((strcmp(tokenList[i],"WHILE") == 0) && strcmp(tokenList[i+4],"THEN") == 0){
             
+            FILE *fileOutput;
+            fileOutput = (isWritingFunction == false) ? fileOutput : functions_output;
+            
             if(strcmp(tokenList[i],"ELSEIF") == 0){
-                fputs("} ", oFile);
+                fputs("} ", fileOutput);
             }
             
             /* Left hand side. Get token prefix */
@@ -1130,7 +1222,7 @@ void parse(char **tokenList, int tokenListSize)
             printf("RHS: %s\n", rhsTokenPrefix);
             
             /* Create new if-scope */
-            fputs("while(", oFile);
+            fputs("while(", fileOutput);
             
             /** Create conditional expression based on type of lhs and rhs **/
             /* Get left value of expression */
@@ -1191,16 +1283,22 @@ void parse(char **tokenList, int tokenListSize)
             else if(strcmp(tokenList[i+2],"LESS") == 0){
                 sprintf(condition, "%s < %s", lhsValue, rhsValue+1);
             }
-            fputs(condition, oFile);
+            fputs(condition, fileOutput);
             
-            fputs("){\n", oFile);
+            fputs("){\n", fileOutput);
             i += 5;
         }
         else if(strcmp(tokenList[i],"ENDWHILE") == 0){
-            fputs("}\n", oFile);
+            FILE *fileOutput;
+            fileOutput = (isWritingFunction == false) ? main_output : functions_output;
+            
+            fputs("}\n", fileOutput);
             i++;
         }
         else if(strcmp(tokenList[i],"INCREMENT") == 0){
+            FILE *fileOutput;
+            fileOutput = (isWritingFunction == false) ? main_output : functions_output;
+            
             /* Get prefix */
             char *nextTokenPrefix = new char[MAX_DIGIT_SIZE];
             char *nextToken = tokenList[i+1];
@@ -1219,11 +1317,68 @@ void parse(char **tokenList, int tokenListSize)
                 /* Increment value */
                 char line[100];
                 sprintf(line, "%s++;\n", varname+1);
-                fputs(line, oFile);
+                fputs(line, fileOutput);
             }
 
+            delete [] nextTokenPrefix;
             
             i += 2;
+        }
+        else if(strcmp(tokenList[i],"FUNCTION_DECL") == 0 && (i+2) <= tokenListSize-1){
+            isWritingFunction = true;
+            
+            FILE *fileOutput;
+            fileOutput = (isWritingFunction == false) ? main_output : functions_output;
+            
+            printf("\tFUNCTION NAME = %s\n", tokenList[i+1]);
+            /* Get function name from token list */
+            char *funcName = tokenList[i+1];
+            
+            /* Get function return type. Token is of the form RET:<type> */
+            char strbuff[100];
+            strcpy(strbuff, tokenList[i+2]);
+            char **split = str_split(strbuff, ':');
+            char *funcReturnType = split[1];
+            printf("\tRETURN TYPE = %s\n", funcReturnType);
+            
+            /* Add to symbols table */
+            function_symbol_table[funcName] = funcReturnType;
+            
+            /* Write output */
+            char line[1000];
+            sprintf(line, "%s %s{\n", funcReturnType, funcName);
+            fputs(line, functions_output);
+            
+            free(split);
+            
+            i++;
+        }
+        else if(strcmp(tokenList[i],"FUNCTION_CLOSE") == 0){
+            FILE *fileOutput;
+            fileOutput = (isWritingFunction == false) ? main_output : functions_output;
+            
+            fputs("}\n", functions_output);
+            isWritingFunction = false;
+            
+            i++;
+        }
+        else if(strcmp(prefixForVarToken,"CAL") == 0){
+            FILE *fileOutput;
+            fileOutput = (isWritingFunction == false) ? main_output : functions_output;
+            
+            /* Get function name from token. Token is of the form CALL:<function_call> */
+            char strbuff[100];
+            strcpy(strbuff, tokenList[i]);
+            char **split = str_split(strbuff, ':');
+            char *funcCall = split[1];
+            
+            /* Write output */
+            char line[1000];
+            sprintf(line, "%s;\n", funcCall);
+            fputs(line, fileOutput);
+            
+            free(split);
+            i++;
         }
         else{
             i++;

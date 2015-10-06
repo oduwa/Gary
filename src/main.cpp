@@ -15,6 +15,7 @@ using namespace std;
 static int MAX_LANG_FILE_SIZE = 5000000;
 static int MAX_STRING_SIZE = 100000;
 static int MAX_DIGIT_SIZE = 10;
+static int MAX_IDENTIFIER_SIZE = 100;
 static int MAX_TOKEN_LIST_SIZE = 100000;
 static int MAX_EXPRESSION_SIZE = 200;
 static int MAX_OPERATOR_SIZE = 20;
@@ -202,7 +203,7 @@ void openOutputFile()
     
     
     functions_output = fopen("interpreted_functions.h","w");
-    fputs("#include <iostream>\n#include \"Includes/constants.h\"\n\n", functions_output);
+    fputs("#include <iostream>\n#include \"Includes/constants.h\"\nusing namespace std;\n\n", functions_output);
 }
 
 void closeOutputFile()
@@ -296,10 +297,12 @@ char** lex(const char *filecontents, int* returnSize)
     char *lowercaseToken = new char[MAX_LANG_FILE_SIZE];
     char *stringLiteral = new char[MAX_STRING_SIZE];
     char *expressionLiteral = new char[MAX_STRING_SIZE];
-    char *number = new char[MAX_STRING_SIZE];
-    char *var = new char[MAX_STRING_SIZE];
-    char *funcName = new char[MAX_STRING_SIZE];
-    char *funcRet = new char[MAX_DIGIT_SIZE];
+    char *number = new char[MAX_IDENTIFIER_SIZE];
+    char *var = new char[MAX_IDENTIFIER_SIZE];
+    char *funcName = new char[MAX_IDENTIFIER_SIZE];
+    char *funcRet = new char[MAX_IDENTIFIER_SIZE];
+    char *funcArgType = new char[MAX_IDENTIFIER_SIZE];
+    char *funcArgName = new char[MAX_IDENTIFIER_SIZE];
     
     bool isLookingAtString = false;
     bool isExpression = false;
@@ -307,6 +310,8 @@ char** lex(const char *filecontents, int* returnSize)
     //bool funcNameStarted = false;
     bool funcDeclStarted = false;
     bool funcRetStarted = false;
+    bool funcArgTypeStarted = false;
+    bool funcArgNameStarted = false;
     
     char **tokenList = new char*[MAX_TOKEN_LIST_SIZE];
     int tokenListSize = 0;
@@ -761,11 +766,9 @@ char** lex(const char *filecontents, int* returnSize)
             tokenList[tokenListSize++] = "FUNCTION_DECL";
             strcpy(token,"");
             funcDeclStarted = true;
+            funcArgTypeStarted = false;
         }
-        else if(strcmp(token,")") == 0 && !isLookingAtString && funcDeclStarted){
-            /* Append closing bracket */
-            strcat(funcName, token);
-            
+        else if(strcmp(token,"(") == 0 && !isLookingAtString && funcDeclStarted){
             /* Create and add token for function name */
             char strbuff[1000];
             sprintf(strbuff, "%s", funcName);
@@ -776,7 +779,51 @@ char** lex(const char *filecontents, int* returnSize)
             /* Reset */
             strcpy(funcName,"");
             strcpy(token,"");
+            //funcDeclStarted = false;
+            funcArgTypeStarted = true;
+            strcpy(funcArgType,"");
+        }
+        else if(strcmp(token,":") == 0 && !isLookingAtString && funcArgTypeStarted){
+            /* Prepare to start lexing arg name */
+            funcArgTypeStarted = false;
+            funcArgNameStarted = true;
+            strcpy(funcArgName,"");
+            strcpy(token,"");
+        }
+        else if(strcmp(token,",") == 0 && !isLookingAtString && funcArgNameStarted){
+            funcArgTypeStarted = true;
+            funcArgNameStarted = false;
+            
+            /* Create and add token for function argument */
+            char strbuff[1000];
+            sprintf(strbuff, "ARG=%s:%s", funcArgType, funcArgName);
+            tokenList[tokenListSize] = new char[MAX_STRING_SIZE];
+            strcpy(tokenList[tokenListSize], strbuff);
+            tokenListSize++;
+            
+            /* Reset */
+            strcpy(funcArgName,"");
+            strcpy(funcArgType,"");
+            strcpy(token,"");
+        }
+        else if(strcmp(token,")") == 0 && !isLookingAtString && funcDeclStarted){
+            /* Append closing bracket */
+            //strcat(funcName, token);
+            
+            /* Create and add token for function argument */
+            char strbuff[1000];
+            sprintf(strbuff, "ARG=%s:%s", funcArgType, funcArgName);
+            tokenList[tokenListSize] = new char[MAX_STRING_SIZE];
+            strcpy(tokenList[tokenListSize], strbuff);
+            tokenListSize++;
+            
+            /* Reset */
+            strcpy(funcName,"");
+            strcpy(funcArgName,"");
+            strcpy(funcArgType,"");
+            strcpy(token,"");
             funcDeclStarted = false;
+            funcArgNameStarted = false;
             funcRetStarted = true;
         }
         else if(filecontents[i] == ')' && !isLookingAtString){
@@ -809,9 +856,20 @@ char** lex(const char *filecontents, int* returnSize)
             strcat(var, token);
             strcpy(token,"");
         }
+        else if(funcDeclStarted && funcArgTypeStarted){
+            strcat(funcArgType, token);
+            strcpy(token,"");
+            printf("ARGTYPE: %s ", funcArgType);
+        }
+        else if(funcDeclStarted && funcArgNameStarted){
+            strcat(funcArgName, token);
+            strcpy(token,"");
+            printf("ARGNAME: %s ", funcArgName);
+        }
         else if(funcDeclStarted && !funcRetStarted){
             strcat(funcName, token);
             strcpy(token,"");
+            printf("FUNCNAME: %s ", funcName);
         }
         
         strcpy(lowercaseToken, token);
@@ -827,6 +885,8 @@ char** lex(const char *filecontents, int* returnSize)
     delete [] var;
     delete [] funcName;
     delete [] funcRet;
+    delete [] funcArgType;
+    delete [] funcArgName;
     
     *returnSize = tokenListSize;
     return tokenList;
@@ -1324,7 +1384,7 @@ void parse(char **tokenList, int tokenListSize)
             
             i += 2;
         }
-        else if(strcmp(tokenList[i],"FUNCTION_DECL") == 0 && (i+2) <= tokenListSize-1){
+        else if(strcmp(tokenList[i],"FUNCTION_DECL") == 0 && (i+3) <= tokenListSize-1){
             isWritingFunction = true;
             
             FILE *fileOutput;
@@ -1333,20 +1393,78 @@ void parse(char **tokenList, int tokenListSize)
             printf("\tFUNCTION NAME = %s\n", tokenList[i+1]);
             /* Get function name from token list */
             char *funcName = tokenList[i+1];
+            bool hasArguments = true;
+            
+            /* Check if function has arguments */
+            int j = i+2;
+            char *nextToken = tokenList[j];
+            int nextTokenSize = strlen(nextToken);
+            char arglist[1000];
+            
+            if(strlen(nextToken) > 5){
+                printf("FUNC WITH ARGS\n");
+                char nextTokenPrefix[4];
+                memcpy(nextTokenPrefix, nextToken, 3);
+                nextTokenPrefix[3] = '\0';
+
+                while(strcmp(nextTokenPrefix,"ARG") == 0){
+                    /* Get arguments */
+                    char anArg[MAX_IDENTIFIER_SIZE];
+                    strcpy(anArg, nextToken+4);
+                    
+                    char **split = str_split(nextToken+4, ':');
+                    strcat(arglist, split[0]);
+                    strcat(arglist, " ");
+                    strcat(arglist, split[1]);
+                    
+                    /* Store with corresponding type in symbols table */
+                    printf("COMP: %d", strcmp(split[0], "string"));
+                    if(strcmp(split[0], "string") == 0){
+                        symbols_type_table[split[1]] = "STRING";
+                    }else{
+                        symbols_type_table[split[1]] = "NUM";
+                    }
+                    
+                    
+                    j++;
+                    nextToken = tokenList[j];
+                    nextTokenSize = strlen(nextToken);
+                    memcpy(nextTokenPrefix, nextToken, 3);
+                    nextTokenPrefix[3] = '\0';
+                    
+                    if(strcmp(nextTokenPrefix,"ARG") == 0){
+                       strcat(arglist, ",");
+                    }
+                }
+            }
+            else{
+                printf("FUNC WITHOUT ARGS\n");
+                j++;
+                hasArguments = false;
+            }
+
+            printf("ARGLIST: %s\n", arglist);
+            
+            
             
             /* Get function return type. Token is of the form RET:<type> */
             char strbuff[100];
-            strcpy(strbuff, tokenList[i+2]);
+            strcpy(strbuff, tokenList[j]);
             char **split = str_split(strbuff, ':');
             char *funcReturnType = split[1];
-            printf("\tRETURN TYPE = %s\n", funcReturnType);
+            printf("\tRETURN TYPE = %s FROM TOKEN:%s\n", funcReturnType, tokenList[j]);
             
             /* Add to symbols table */
             function_symbol_table[funcName] = funcReturnType;
             
             /* Write output */
             char line[1000];
-            sprintf(line, "%s %s{\n", funcReturnType, funcName);
+            if(hasArguments){
+                sprintf(line, "%s %s(%s){\n", funcReturnType, funcName, arglist);
+            }
+            else{
+                sprintf(line, "%s %s(){\n", funcReturnType, funcName);
+            }
             fputs(line, functions_output);
             
             free(split);

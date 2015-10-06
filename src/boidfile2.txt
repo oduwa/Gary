@@ -1,0 +1,12 @@
+
+func myFunc() void:
+	disp "printing from my function"; 
+endfunc
+
+func myFuncB(int:x, string:y) void:
+	disp @y; 
+endfunc
+
+@age << 3;
+@som << "eeeelllsssseeeee";
+myFuncB(age,som);

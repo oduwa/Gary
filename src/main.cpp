@@ -9,6 +9,7 @@
 #include <iostream>
 #include <assert.h>
 #include <map>
+#include "Includes/constants.h"
 
 using namespace std;
 
@@ -372,6 +373,11 @@ char** lex(const char *filecontents, int* returnSize)
                 strcpy(var,"");
                 varStarted = false;
             }
+
+            // TODO: Uncomment for bnf stuff
+//            tokenList[tokenListSize] = new char[1];
+//            strcpy(tokenList[tokenListSize], ";");
+//            tokenListSize++;
             
             isExpression = false;
         }
@@ -756,6 +762,12 @@ char** lex(const char *filecontents, int* returnSize)
             strcat(var, token);
             strcpy(token,"");
         }
+        else if(strcmp(token,"return") == 0 && !isLookingAtString){
+            tokenList[tokenListSize++] = "RETURN";
+            strcpy(token,"");
+            strcpy(funcName,"");
+            funcDeclStarted = false;
+        }
         else if(strcmp(token,"endfunc") == 0 && !isLookingAtString){
             tokenList[tokenListSize++] = "FUNCTION_CLOSE";
             strcpy(token,"");
@@ -859,17 +871,17 @@ char** lex(const char *filecontents, int* returnSize)
         else if(funcDeclStarted && funcArgTypeStarted){
             strcat(funcArgType, token);
             strcpy(token,"");
-            printf("ARGTYPE: %s ", funcArgType);
+            //printf("ARGTYPE: %s ", funcArgType);
         }
         else if(funcDeclStarted && funcArgNameStarted){
             strcat(funcArgName, token);
             strcpy(token,"");
-            printf("ARGNAME: %s ", funcArgName);
+            //printf("ARGNAME: %s ", funcArgName);
         }
         else if(funcDeclStarted && !funcRetStarted){
             strcat(funcName, token);
             strcpy(token,"");
-            printf("FUNCNAME: %s ", funcName);
+            //printf("FUNCNAME: %s ", funcName);
         }
         
         strcpy(lowercaseToken, token);
@@ -894,10 +906,11 @@ char** lex(const char *filecontents, int* returnSize)
 
 void parse(char **tokenList, int tokenListSize)
 {
-    printf("\nPARSE! TOKEN LIST: \n");
+    printf("%s\nPARSE! TOKEN LIST: \n",KGRN);
     for(int i = 0; i < tokenListSize; i++){
         printf("%s\n", tokenList[i]);
     }
+    printf("%s\nPARSE! END TOKEN LIST: \n",KNRM);
     printf("\n");
     
     bool isWritingFunction = false;
@@ -979,7 +992,8 @@ void parse(char **tokenList, int tokenListSize)
                 printf("PRINT VARTYPE: %s\n", vartype);
                 if(strcmp(vartype,"STRING") == 0){
                     char line[100];
-                    sprintf(line, "printf(\"%%s\\n\", %s);\n", varname+1);
+                    //sprintf(line, "printf(\"%%s\\n\", %s);\n", varname+1);
+                    sprintf(line, "std::cout << %s << std::endl;\n", varname+1);
                     fputs(line, fileOutput);
                 }
                 else if(strcmp(vartype,"NUM") == 0){
@@ -1399,51 +1413,49 @@ void parse(char **tokenList, int tokenListSize)
             int j = i+2;
             char *nextToken = tokenList[j];
             int nextTokenSize = strlen(nextToken);
-            char arglist[1000];
+            char *arglist = new char[1000];
             
+            /* if doesnt have arguments, token will be "ARG=:" rather than "ARG=<arg1>: ... :<arg2>" */
             if(strlen(nextToken) > 5){
-                printf("FUNC WITH ARGS\n");
+                //printf("FUNC WITH ARGS\n");
                 char nextTokenPrefix[4];
                 memcpy(nextTokenPrefix, nextToken, 3);
                 nextTokenPrefix[3] = '\0';
 
                 while(strcmp(nextTokenPrefix,"ARG") == 0){
-                    /* Get arguments */
-                    char anArg[MAX_IDENTIFIER_SIZE];
-                    strcpy(anArg, nextToken+4);
-                    
+                    /* Append arguments to argument list */
                     char **split = str_split(nextToken+4, ':');
                     strcat(arglist, split[0]);
                     strcat(arglist, " ");
                     strcat(arglist, split[1]);
                     
-                    /* Store with corresponding type in symbols table */
-                    printf("COMP: %d", strcmp(split[0], "string"));
+                    /* Store with corresponding type in symbols table for variables */
                     if(strcmp(split[0], "string") == 0){
                         symbols_type_table[split[1]] = "STRING";
                     }else{
                         symbols_type_table[split[1]] = "NUM";
                     }
                     
-                    
+                    /* Get next token */
                     j++;
                     nextToken = tokenList[j];
                     nextTokenSize = strlen(nextToken);
                     memcpy(nextTokenPrefix, nextToken, 3);
                     nextTokenPrefix[3] = '\0';
                     
+                    /* Handle the fact that if last argument dont add a comma */
                     if(strcmp(nextTokenPrefix,"ARG") == 0){
                        strcat(arglist, ",");
                     }
                 }
             }
             else{
-                printf("FUNC WITHOUT ARGS\n");
+                //printf("FUNC WITHOUT ARGS\n");
                 j++;
                 hasArguments = false;
             }
 
-            printf("ARGLIST: %s\n", arglist);
+            //printf("ARGLIST: %s\n", arglist);
             
             
             
@@ -1453,6 +1465,26 @@ void parse(char **tokenList, int tokenListSize)
             char **split = str_split(strbuff, ':');
             char *funcReturnType = split[1];
             printf("\tRETURN TYPE = %s FROM TOKEN:%s\n", funcReturnType, tokenList[j]);
+            
+            if(strcmp(funcReturnType, "string") == 0){
+                delete [] funcReturnType;
+                funcReturnType = "char*";
+            }
+            else if(strncmp(funcReturnType, "list", 4) == 0){
+                /* Get list type */
+                char listType[50];
+                int len = strlen(funcReturnType);
+                memcpy(listType, funcReturnType+5, len-5-1);
+                
+                /* Prepare return type for function */
+                delete [] funcReturnType;
+                sprintf(funcReturnType, "%s[]", listType);
+            }
+            else{
+                // Leave as is
+            }
+            
+            
             
             /* Add to symbols table */
             function_symbol_table[funcName] = funcReturnType;
@@ -1468,6 +1500,7 @@ void parse(char **tokenList, int tokenListSize)
             fputs(line, functions_output);
             
             free(split);
+            delete [] arglist;
             
             i++;
         }
@@ -1497,6 +1530,66 @@ void parse(char **tokenList, int tokenListSize)
             
             free(split);
             i++;
+        }
+        else if(strcmp(tokenList[i],"RETURN") == 0){
+            FILE *fileOutput;
+            fileOutput = (isWritingFunction == false) ? main_output : functions_output;
+            
+            /* Process next token to get its prefix (hence what it represents) */
+            char *nextToken = tokenList[i+1];
+            char nextTokenPrefix[4];
+            memcpy(nextTokenPrefix, nextToken, 3);
+            nextTokenPrefix[3] = '\0';
+            
+            /* Return the value corresponding to the token type */
+            if(strcmp(nextTokenPrefix,"NUM") == 0){
+                /* Get value to return */
+                char *returnValue = new char[100];
+                int nextTokenSize = strlen(nextToken);
+                memcpy(returnValue, nextToken+5, (nextTokenSize-5));
+                returnValue[(nextTokenSize-5)] = '\0';
+                
+                /* Write output */
+                char line[1000];
+                sprintf(line, "return %s;\n", returnValue);
+                fputs(line, fileOutput);
+                
+                /* Cleanup */
+                delete [] returnValue;
+            }
+            else if(strcmp(nextTokenPrefix,"EXP") == 0){
+                /* Get value to return */
+                char *returnValue = new char[100];
+                int nextTokenSize = strlen(nextToken);
+                memcpy(returnValue, nextToken+6, (nextTokenSize-6));
+                returnValue[nextTokenSize-6] = '\0';
+                
+                /* Write output */
+                char line[1000];
+                sprintf(line, "return %s;\n", returnValue);
+                fputs(line, fileOutput);
+                
+                /* Cleanup */
+                delete [] returnValue;
+            }
+            else if(strcmp(nextTokenPrefix,"VAR") == 0){
+                /* Get value to return */
+                char *returnValue = new char[100];
+                int nextTokenSize = strlen(nextToken);
+                memcpy(returnValue, nextToken+6, (nextTokenSize-6));
+                returnValue[(nextTokenSize-6)] = '\0';
+                
+                /* Write output */
+                char line[1000];
+                sprintf(line, "return %s;\n", returnValue);
+                fputs(line, fileOutput);
+                
+                /* Cleanup */
+                delete [] returnValue;
+            }
+            
+            /* Move to next relevant token in token list */
+            i += 2;
         }
         else{
             i++;

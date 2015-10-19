@@ -198,7 +198,7 @@ void openOutputFile()
 {
     main_output = fopen("language_run.cpp","w");
     
-    fputs("#include <iostream>\n#include \"Includes/constants.h\"\n#include \"interpreted_functions.h\"\n\nint main(){\n\n", main_output);
+    fputs("#include <iostream>\n#include <vector>\n#include \"Includes/constants.h\"\n#include \"interpreted_functions.h\"\n\nint main(){\n\n", main_output);
     fputs("printf(\"%sGARY:\\n\", KMAG);\n\n", main_output);
     fputs("long expression;\n", main_output);
     
@@ -313,6 +313,7 @@ char** lex(const char *filecontents, int* returnSize)
     bool funcRetStarted = false;
     bool funcArgTypeStarted = false;
     bool funcArgNameStarted = false;
+    bool lineIsComment = false;
     
     char **tokenList = new char*[MAX_TOKEN_LIST_SIZE];
     int tokenListSize = 0;
@@ -336,7 +337,12 @@ char** lex(const char *filecontents, int* returnSize)
                 strcpy(token,"");
             }
         }
+        else if(strcmp(token,"#") == 0 && !isLookingAtString){
+            lineIsComment = true;
+            strcpy(token,"");
+        }
         else if(strcmp(token,";") == 0 || strcmp(token,"\n") == 0){
+            lineIsComment = false;
             strcpy(token,"");
             if(strcmp(expressionLiteral,"") != 0 && isExpression){
                 printf("\t\tEXPR: %s\n", expressionLiteral);
@@ -380,6 +386,10 @@ char** lex(const char *filecontents, int* returnSize)
 //            tokenListSize++;
             
             isExpression = false;
+        }
+        else if(lineIsComment){
+            // Do nothing
+            strcpy(token,"");
         }
         else if(strcmp(token,"increment") == 0){
             tokenList[tokenListSize++] = "INCREMENT";
@@ -1156,11 +1166,16 @@ void parse(char **tokenList, int tokenListSize)
                 char *listType = paramsSplit[0];
                 char *sizeParam = paramsSplit[1];
                 free(paramsSplit);
-                
                 int listSize = atoi(sizeParam);
                 
-                printf("CALL PARAMS: %s\n", listType);
-                printf("PARAMS LEN: %d\n", listSize);
+                /* Write to file */
+                if(isVariableDefined(varname) == false){
+                    fprintf(fileOutput, "std::vector<%s> %s = std::vector<%s>(%d);\n", listType, varname, listType, listSize);
+                }
+                else{
+                    fprintf(fileOutput, "%s = std::vector<%s>(%d);\n", varname, listType, listSize);
+                }
+                
                 
                 
                 /* Increment i by 1 so language doesnt try to call the CALL token */
@@ -1515,7 +1530,7 @@ void parse(char **tokenList, int tokenListSize)
                 
                 /* Prepare return type for function */
                 delete [] funcReturnType;
-                sprintf(funcReturnType, "%s[]", listType);
+                sprintf(funcReturnType, "std::vector<%s>", listType);
             }
             else{
                 // Leave as is

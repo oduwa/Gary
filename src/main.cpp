@@ -652,6 +652,11 @@ char** lex(const char *filecontents, int* returnSize)
             /* Reset token */
             strcpy(token,"");
         }
+        else if(strcmp(token,"CREATE_LIST") == 0){
+            /* List constructor found */
+            tokenList[tokenListSize++] = "MKLST";
+            strcpy(token,"");
+        }
         else if(strcmp(token,"disp") == 0){
             /* DISP FOUND */
             tokenList[tokenListSize++] = "DISP";
@@ -1136,6 +1141,38 @@ void parse(char **tokenList, int tokenListSize)
                 
                 /* Store with corresponding type in symbols table */
                 symbols_type_table[varname] = "NUM";
+            }
+            else if(strcmp(tokenList[i+2], "MKLST") == 0){
+                /* Is trying to create a new array. Get array properties */
+                char *callToken = tokenList[i+3];
+                char *callParameters = new char[MAX_DIGIT_SIZE+10];
+                strcpy(callParameters, callToken+6);
+                callParameters[strlen(callParameters)-1] = '\0';
+                
+                /* Split array parameters to get them separately from "<type>, <size>" to
+                 * "<type>" and "<size>"
+                 */
+                char **paramsSplit = str_split(callParameters, ',');
+                char *listType = paramsSplit[0];
+                char *sizeParam = paramsSplit[1];
+                free(paramsSplit);
+                
+                int listSize = atoi(sizeParam);
+                
+                printf("CALL PARAMS: %s\n", listType);
+                printf("PARAMS LEN: %d\n", listSize);
+                
+                
+                /* Increment i by 1 so language doesnt try to call the CALL token */
+                i++;
+                
+                /* Cleanup */
+                delete [] callParameters;
+                free(listType);
+                free(sizeParam);
+                
+                /* Store with corresponding type in symbols table */
+                symbols_type_table[varname] = "LIST";
             }
             
             /* For assignments of the form <var> = <expr/num/var> + <var> */

@@ -158,6 +158,18 @@ char* lookupVariableType(char* varname)
     }
 }
 
+char* lookupFunctionType(char* varname)
+{
+    typedef std::map<char*, char*>::iterator it_type;
+    for(it_type iterator = function_symbol_table.begin(); iterator != function_symbol_table.end(); iterator++) {
+        // iterator->first = key
+        // iterator->second = value
+        if(strcmp(iterator->first, varname) == 0){
+            return iterator->second;
+        }
+    }
+}
+
 bool isVariableDefined(char *varname)
 {
     typedef std::map<char*, char*>::iterator it_type;
@@ -665,6 +677,11 @@ char** lex(const char *filecontents, int* returnSize)
         else if(strcmp(token,"CREATE_LIST") == 0){
             /* List constructor found */
             tokenList[tokenListSize++] = "MKLST";
+            strcpy(token,"");
+        }
+        else if(strcmp(token,"ADD_TO_LIST") == 0){
+            /* List constructor found */
+            tokenList[tokenListSize++] = "LSTADD";
             strcpy(token,"");
         }
         else if(strcmp(token,"disp") == 0){
@@ -1176,8 +1193,6 @@ void parse(char **tokenList, int tokenListSize)
                     fprintf(fileOutput, "%s = std::vector<%s>(%d);\n", varname, listType, listSize);
                 }
                 
-                
-                
                 /* Increment i by 1 so language doesnt try to call the CALL token */
                 i++;
                 
@@ -1187,7 +1202,9 @@ void parse(char **tokenList, int tokenListSize)
                 free(sizeParam);
                 
                 /* Store with corresponding type in symbols table */
-                symbols_type_table[varname] = "LIST";
+                char *tableEntry = new char[100];
+                sprintf(tableEntry, "LIST<%s>", listType);
+                symbols_type_table[varname] = tableEntry;
             }
             
             /* For assignments of the form <var> = <expr/num/var> + <var> */
@@ -1506,10 +1523,6 @@ void parse(char **tokenList, int tokenListSize)
                 j++;
                 hasArguments = false;
             }
-
-            //printf("ARGLIST: %s\n", arglist);
-            
-            
             
             /* Get function return type. Token is of the form RET:<type> */
             char strbuff[100];
@@ -1529,17 +1542,11 @@ void parse(char **tokenList, int tokenListSize)
                 memcpy(listType, funcReturnType+5, len-5-1);
                 
                 /* Prepare return type for function */
-                delete [] funcReturnType;
                 sprintf(funcReturnType, "std::vector<%s>", listType);
             }
             else{
                 // Leave as is
             }
-            
-            
-            
-            /* Add to symbols table */
-            function_symbol_table[funcName] = funcReturnType;
             
             /* Write output */
             char line[1000];
@@ -1551,8 +1558,15 @@ void parse(char **tokenList, int tokenListSize)
             }
             fputs(line, functions_output);
             
+            /* Add to symbols table */
+            char *tableEntry = new char[100];
+            sprintf(tableEntry, "%s", funcReturnType);
+            function_symbol_table[funcName] = tableEntry;
+            
+            /* Cleanup */
             free(split);
             delete [] arglist;
+            delete [] funcReturnType;
             
             i++;
         }
@@ -1643,6 +1657,52 @@ void parse(char **tokenList, int tokenListSize)
             /* Move to next relevant token in token list */
             i += 2;
         }
+        else if(strcmp(tokenList[i], "LSTADD") == 0){
+            /** ADD VALUE TO ARRAY **/
+            
+            /* Prepare correct output */
+            FILE *fileOutput;
+            fileOutput = (isWritingFunction == false) ? main_output : functions_output;
+            
+            /* Get call arguments */
+            char *callToken = tokenList[i+1];
+            char *callParameters = new char[MAX_DIGIT_SIZE+10];
+            strcpy(callParameters, callToken+6);
+            callParameters[strlen(callParameters)-1] = '\0';
+            printf("%sADD WITH ARGUMENTS: %s%s\n", KRED, callParameters, KNRM);
+            
+            /* Split array parameters to get them separately from "@<array_variable_name>, <value_to_add>" to
+             * "@<array_variable_name>" and "<value_to_add>"
+             */
+            char **paramsSplit = str_split(callParameters, ',');
+            char *listName = paramsSplit[0];listName++;
+            char *listValue = paramsSplit[1];
+            free(paramsSplit);
+            
+            /* Get list type */
+            char *listVariableId = lookupVariableType(listName);
+            char *listType = new char[100];
+            memcpy(listType, listVariableId+5, strlen(listVariableId)-5-1);
+            
+            /* Handle pushing to list based on type of list */
+            if(strcmp(listType, "int") == 0){
+                /* Get value */
+                int value = atoi(listValue);
+                
+                /* Write output */
+                char line[1000];
+                sprintf(line, "%s.push_back(%d);\n", listName, value);
+                fputs(line, fileOutput);
+            }
+            
+            
+            /* Cleanup */
+            delete [] listType;
+
+            
+            /* Next */
+            i+=2;
+        }
         else{
             i++;
         }
@@ -1661,6 +1721,19 @@ int main(int argc, const char * argv[]) {
             char **tokenList = lex(filecontents, &tokenListSize);
             parse(tokenList, tokenListSize);
         }
+    }
+    
+    /* Print variable symbols table */
+    printf("%s\n\nSYMBOLS TABLE\n%s", "\x1B[33m", "\x1B[0m");
+    typedef std::map<char*, char*>::iterator it_type;
+    for(it_type iterator = symbols_type_table.begin(); iterator != symbols_type_table.end(); iterator++) {
+        printf("%s %s -> %s\n%s", "\x1B[33m", iterator->first, iterator->second, "\x1B[0m");
+    }
+    
+    printf("%s\n\nFUNCTIONS TABLE\n%s", "\x1B[33m", "\x1B[0m");
+    typedef std::map<char*, char*>::iterator it_type;
+    for(it_type iterator = function_symbol_table.begin(); iterator != function_symbol_table.end(); iterator++) {
+        printf("%s %s -> %s\n%s", "\x1B[33m", iterator->first, iterator->second, "\x1B[0m");
     }
     
     closeOutputFile();

@@ -680,8 +680,13 @@ char** lex(const char *filecontents, int* returnSize)
             strcpy(token,"");
         }
         else if(strcmp(token,"ADD_TO_LIST") == 0){
-            /* List constructor found */
+            /* List add function found */
             tokenList[tokenListSize++] = "LSTADD";
+            strcpy(token,"");
+        }
+        else if(strcmp(token,"REMOVE_FROM_POSITION_IN_LIST") == 0){
+            /* List remove function found */
+            tokenList[tokenListSize++] = "LSTRMV_IDX";
             strcpy(token,"");
         }
         else if(strcmp(token,"disp") == 0){
@@ -1196,15 +1201,15 @@ void parse(char **tokenList, int tokenListSize)
                 /* Increment i by 1 so language doesnt try to call the CALL token */
                 i++;
                 
-                /* Cleanup */
-                delete [] callParameters;
-                free(listType);
-                free(sizeParam);
-                
                 /* Store with corresponding type in symbols table */
                 char *tableEntry = new char[100];
                 sprintf(tableEntry, "LIST<%s>", listType);
                 symbols_type_table[varname] = tableEntry;
+                
+                /* Cleanup */
+                delete [] callParameters;
+                free(listType);
+                free(sizeParam);
             }
             
             /* For assignments of the form <var> = <expr/num/var> + <var> */
@@ -1669,7 +1674,6 @@ void parse(char **tokenList, int tokenListSize)
             char *callParameters = new char[MAX_DIGIT_SIZE+10];
             strcpy(callParameters, callToken+6);
             callParameters[strlen(callParameters)-1] = '\0';
-            printf("%sADD WITH ARGUMENTS: %s%s\n", KRED, callParameters, KNRM);
             
             /* Split array parameters to get them separately from "@<array_variable_name>, <value_to_add>" to
              * "@<array_variable_name>" and "<value_to_add>"
@@ -1694,11 +1698,63 @@ void parse(char **tokenList, int tokenListSize)
                 sprintf(line, "%s.push_back(%d);\n", listName, value);
                 fputs(line, fileOutput);
             }
+            else if(strcmp(listType, "string") == 0){
+                /* Get value */
+                char *value = listValue;
+                while(*value == ' '){
+                    value++;
+                }
+                
+                /* Write output */
+                char line[1000];
+                sprintf(line, "%s.push_back(%s);\n", listName, value);
+                fputs(line, fileOutput);
+            }
             
             
             /* Cleanup */
             delete [] listType;
 
+            
+            /* Next */
+            i+=2;
+        }
+        else if(strcmp(tokenList[i], "LSTRMV_IDX") == 0){
+            /** REMOVE VALUE FROM ARRAY **/
+            
+            /* Prepare correct output */
+            FILE *fileOutput;
+            fileOutput = (isWritingFunction == false) ? main_output : functions_output;
+            
+            /* Get call arguments */
+            char *callToken = tokenList[i+1];
+            char *callParameters = new char[MAX_DIGIT_SIZE+10];
+            strcpy(callParameters, callToken+6);
+            callParameters[strlen(callParameters)-1] = '\0';
+            printf("%sRMV WITH ARGUMENTS: %s%s\n", KRED, callParameters, KNRM);
+            
+            /* Split array parameters to get them separately from "@<array_variable_name>, <index_to_remove>" to
+             * "@<array_variable_name>" and "<index_to_remove>"
+             */
+            char **paramsSplit = str_split(callParameters, ',');
+            char *listName = paramsSplit[0];listName++;
+            char *listIndex = paramsSplit[1];
+            free(paramsSplit);
+            
+            /* Get value */
+            int index_to_remove = atoi(listIndex);
+            
+            /* Decrement Index to account for the fact that the generated language is indexed from 1 */
+            index_to_remove--;
+            
+            /* Write output */
+            char line[1000];
+            sprintf(line, "%s.erase(%s.begin() + %d);\n", listName, listName, index_to_remove);
+            fputs(line, fileOutput);
+            
+            
+            /* Cleanup */
+            free(paramsSplit[0]);
             
             /* Next */
             i+=2;

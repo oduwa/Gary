@@ -210,7 +210,7 @@ void openOutputFile()
 {
     main_output = fopen("language_run.cpp","w");
     
-    fputs("#include <iostream>\n#include <vector>\n#include \"Includes/constants.h\"\n#include \"interpreted_functions.h\"\n\nint main(){\n\n", main_output);
+    fputs("#include <iostream>\n#include <vector>\n#include \"Includes/constants.h\"\n#include \"Includes/BuiltInFunctions.h\"\n#include \"interpreted_functions.h\"\n\nint main(){\n\n", main_output);
     fputs("printf(\"%sGARY:\\n\", KMAG);\n\n", main_output);
     fputs("long expression;\n", main_output);
     
@@ -689,6 +689,11 @@ char** lex(const char *filecontents, int* returnSize)
             tokenList[tokenListSize++] = "LSTRMV_IDX";
             strcpy(token,"");
         }
+        else if(strcmp(token,"PUT_IN_LIST") == 0){
+            /* List put function found */
+            tokenList[tokenListSize++] = "LSTPUT";
+            strcpy(token,"");
+        }
         else if(strcmp(token,"disp") == 0){
             /* DISP FOUND */
             tokenList[tokenListSize++] = "DISP";
@@ -1036,6 +1041,11 @@ void parse(char **tokenList, int tokenListSize)
                 else if(strcmp(vartype,"NUM") == 0){
                     char line[100];
                     sprintf(line, "printf(\"%%lu\\n\", %s);\n", varname+1);
+                    fputs(line, fileOutput);
+                }
+                else if(strstr(vartype, "LIST<") != NULL){
+                    char line[100];
+                    sprintf(line, "printVector(%s);\n", varname+1);
                     fputs(line, fileOutput);
                 }
                 
@@ -1688,28 +1698,42 @@ void parse(char **tokenList, int tokenListSize)
             char *listType = new char[100];
             memcpy(listType, listVariableId+5, strlen(listVariableId)-5-1);
             
-            /* Handle pushing to list based on type of list */
-            if(strcmp(listType, "int") == 0){
-                /* Get value */
-                int value = atoi(listValue);
+            /* Handle variable input */
+            if(*listValue == '@'){
+                listValue++;
                 
                 /* Write output */
                 char line[1000];
-                sprintf(line, "%s.push_back(%d);\n", listName, value);
+                sprintf(line, "%s.push_back(%s);\n", listName, listValue);
                 fputs(line, fileOutput);
             }
-            else if(strcmp(listType, "string") == 0){
-                /* Get value */
-                char *value = listValue;
-                while(*value == ' '){
-                    value++;
+            /* Handle literal input */
+            else{
+                /* Handle pushing to list based on type of list */
+                if(strcmp(listType, "int") == 0){
+                    /* Get value */
+                    int value = atoi(listValue);
+                    
+                    /* Write output */
+                    char line[1000];
+                    sprintf(line, "%s.push_back(%d);\n", listName, value);
+                    fputs(line, fileOutput);
                 }
-                
-                /* Write output */
-                char line[1000];
-                sprintf(line, "%s.push_back(%s);\n", listName, value);
-                fputs(line, fileOutput);
+                else if(strcmp(listType, "string") == 0){
+                    /* Get value */
+                    char *value = listValue;
+                    while(*value == ' '){
+                        value++;
+                    }
+                    
+                    /* Write output */
+                    char line[1000];
+                    sprintf(line, "%s.push_back(%s);\n", listName, value);
+                    fputs(line, fileOutput);
+                }
             }
+            
+            
             
             
             /* Cleanup */
@@ -1731,7 +1755,6 @@ void parse(char **tokenList, int tokenListSize)
             char *callParameters = new char[MAX_DIGIT_SIZE+10];
             strcpy(callParameters, callToken+6);
             callParameters[strlen(callParameters)-1] = '\0';
-            printf("%sRMV WITH ARGUMENTS: %s%s\n", KRED, callParameters, KNRM);
             
             /* Split array parameters to get them separately from "@<array_variable_name>, <index_to_remove>" to
              * "@<array_variable_name>" and "<index_to_remove>"
@@ -1740,6 +1763,11 @@ void parse(char **tokenList, int tokenListSize)
             char *listName = paramsSplit[0];listName++;
             char *listIndex = paramsSplit[1];
             free(paramsSplit);
+            
+            /* Handle variable input */
+            if(*listIndex == '@'){
+                listIndex++;
+            }
             
             /* Get value */
             int index_to_remove = atoi(listIndex);
@@ -1755,6 +1783,64 @@ void parse(char **tokenList, int tokenListSize)
             
             /* Cleanup */
             free(paramsSplit[0]);
+            
+            /* Next */
+            i+=2;
+        }
+        else if(strcmp(tokenList[i], "LSTPUT") == 0){
+            /** INSERT VALUE INTO ARRAY AT SPECIFIED POSITION **/
+            
+            /* Prepare correct output */
+            FILE *fileOutput;
+            fileOutput = (isWritingFunction == false) ? main_output : functions_output;
+            
+            /* Get call arguments */
+            char *callToken = tokenList[i+1];
+            char *callParameters = new char[MAX_DIGIT_SIZE+10];
+            strcpy(callParameters, callToken+6);
+            callParameters[strlen(callParameters)-1] = '\0';
+            printf("%sPUT WITH ARGUMENTS: %s%s\n", KRED, callParameters, KNRM);
+            
+            /* 
+             * Split array parameters to get them separately from "@<array_variable_name>, <index_to_put>, <value>".
+             */
+            char **paramsSplit = str_split(callParameters, ',');
+            char *listName = paramsSplit[0];listName++;
+            char *listIndex = paramsSplit[1];
+            char *newValue = paramsSplit[2];
+            free(paramsSplit);
+            printf("%sSPLIT  RESULT: x%sx x%sx x%sx\n", KRED, listName, listIndex, newValue, KNRM);
+            
+            /* Clean input. convert index to int */
+            int index_to_put = atoi(listIndex);
+            
+            /* Clean input. remove any leading spaces from strings */
+            while(*listName == ' '){
+                listName++;
+            }
+            while(*newValue == ' '){
+                newValue++;
+            }
+            
+            /* Handle variable input */
+            if(*listIndex == '@'){
+                listIndex++;
+            }
+            if(*newValue == '@'){
+                newValue++;
+            }
+            
+            /* Decrement Index to account for the fact that the generated language is indexed from 1 */
+            index_to_put--;
+            
+            /* Write output */
+            char line[1000];
+            sprintf(line, "%s[%d] = %s;\n", listName, index_to_put, newValue);
+            fputs(line, fileOutput);
+
+            
+            /* Cleanup */
+            free(listIndex);
             
             /* Next */
             i+=2;

@@ -473,7 +473,7 @@ char** lex(const char *filecontents, int* returnSize)
         }
         else if(strcmp(token,"<") == 0 && filecontents[i+1] == '=' && isLookingAtString == false){
             
-            /* Make delimiter for == expression */
+            /* Tokenise expression or variable */
             if(strcmp(expressionLiteral,"") != 0 && !isExpression){
                 
                 /* Create and add token for string literal */
@@ -510,7 +510,7 @@ char** lex(const char *filecontents, int* returnSize)
         }
         else if(strcmp(token,">") == 0 && filecontents[i+1] == '=' && isLookingAtString == false){
             
-            /* Make delimiter for == expression */
+            /* Tokenise expression or variable */
             if(strcmp(expressionLiteral,"") != 0 && !isExpression){
                 
                 /* Create and add token for string literal */
@@ -547,7 +547,7 @@ char** lex(const char *filecontents, int* returnSize)
         }
         else if(strcmp(token,"!") == 0 && filecontents[i+1] == '=' && isLookingAtString == false){
             
-            /* Make delimiter for == expression */
+            /* Tokenise expression or variable */
             if(strcmp(expressionLiteral,"") != 0 && !isExpression){
                 
                 /* Create and add token for string literal */
@@ -584,7 +584,7 @@ char** lex(const char *filecontents, int* returnSize)
         }
         else if(strcmp(token,"=") == 0 && isLookingAtString == false){
             
-            /* Make delimiter for == expression */
+            /* Tokenise expression or variable */
             if(strcmp(expressionLiteral,"") != 0 && !isExpression){
                 
                 /* Create and add token for string literal */
@@ -623,7 +623,7 @@ char** lex(const char *filecontents, int* returnSize)
         }
         else if(strcmp(token,"<") == 0 && filecontents[i-1] != '<' && filecontents[i+1] != '<' && isLookingAtString == false){
 
-            /* Make delimiter for == expression */
+            /*Tokenise expression or variable */
             if(strcmp(expressionLiteral,"") != 0 && !isExpression){
                 
                 /* Create and add token for string literal */
@@ -660,7 +660,7 @@ char** lex(const char *filecontents, int* returnSize)
         }
         else if(strcmp(token,">") == 0 && isLookingAtString == false){
 
-            /* Make delimiter for == expression */
+            /* Tokenise expression or variable */
             if(strcmp(expressionLiteral,"") != 0 && !isExpression){
                 
                 /* Create and add token for string literal */
@@ -697,8 +697,7 @@ char** lex(const char *filecontents, int* returnSize)
         }
         else if(strcmp(token,"A") == 0 && checkCharacterInPosition(filecontents,size,i+1,'N')
                 && checkCharacterInPosition(filecontents,size,i+2,'D') && isLookingAtString == false){
-            printf("XXXXXXXXXXXX\n");
-            /* Make delimiter for == expression */
+            /* Tokenise expression or variable */
             if(strcmp(expressionLiteral,"") != 0 && !isExpression){
                 
                 /* Create and add token for string literal */
@@ -724,6 +723,36 @@ char** lex(const char *filecontents, int* returnSize)
             }
             
             tokenList[tokenListSize++] = "&&";
+            strcpy(token,"");
+            i+=2;
+        }
+        else if(strcmp(token,"O") == 0 && checkCharacterInPosition(filecontents,size,i+1,'R') && isLookingAtString == false){
+            /* Tokenise expression or variable */
+            if(strcmp(expressionLiteral,"") != 0 && !isExpression){
+                
+                /* Create and add token for string literal */
+                char strbuff[1000];
+                sprintf(strbuff, "NUM: %s", expressionLiteral);
+                tokenList[tokenListSize] = new char[MAX_STRING_SIZE];
+                strcpy(tokenList[tokenListSize], strbuff);
+                tokenListSize++;
+                
+                strcpy(expressionLiteral,"");
+            }
+            else if(strcmp(var,"") != 0 && varStarted){
+                /* Create and add token for variable name */
+                char strbuff[1000];
+                sprintf(strbuff, "VAR: %s", var);
+                tokenList[tokenListSize] = new char[MAX_STRING_SIZE];
+                strcpy(tokenList[tokenListSize], strbuff);
+                tokenListSize++;
+                
+                /* Reset var */
+                strcpy(var,"");
+                varStarted = false;
+            }
+            
+            tokenList[tokenListSize++] = "||";
             strcpy(token,"");
             i+=2;
         }
@@ -1391,7 +1420,7 @@ void parse(char **tokenList, int tokenListSize)
             fputs("){\n", fileOutput);
             i += 5;
         }
-        else if((strcmp(tokenList[i],"IF") == 0 || strcmp(tokenList[i],"ELSEIF") == 0) && strcmp(tokenList[i+4],"&&") == 0){
+        else if((strcmp(tokenList[i],"IF") == 0 || strcmp(tokenList[i],"ELSEIF") == 0) && (strcmp(tokenList[i+4],"&&") == 0 || strcmp(tokenList[i+4],"||") == 0)){
             
             FILE *fileOutput;
             fileOutput = (isWritingFunction == false) ? main_output : functions_output;
@@ -1403,10 +1432,10 @@ void parse(char **tokenList, int tokenListSize)
             /* Create new if-scope */
             fputs("if(", fileOutput);
             
-            /* Loop to keep adding conditions for every time theres an "&&" */
+            /* Loop to keep adding conditions for every time theres an "&&" or "||" */
             int conditionCount = 0;
             char conditions[100];
-            while(strcmp(tokenList[i],"IF") == 0 || strcmp(tokenList[i],"ELSEIF") == 0 || strcmp(tokenList[i],"&&") == 0){
+            while(strcmp(tokenList[i],"IF") == 0 || strcmp(tokenList[i],"ELSEIF") == 0 || strcmp(tokenList[i],"&&") == 0 || strcmp(tokenList[i],"||") == 0){
                 /* Left hand side. Get token prefix */
                 char strbuff[100];
                 strcpy(strbuff, tokenList[i+1]);
@@ -1479,7 +1508,12 @@ void parse(char **tokenList, int tokenListSize)
                 }
                 
                 if(conditionCount > 0){
-                    strcat(conditions, " && ");
+                    if(strcmp(tokenList[i],"&&") == 0){
+                        strcat(conditions, " && ");
+                    }
+                    else if(strcmp(tokenList[i],"||") == 0){
+                        strcat(conditions, " || ");
+                    }
                 }
                 strcat(conditions, condition);
                 

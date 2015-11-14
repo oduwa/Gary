@@ -8,8 +8,8 @@
 
 #include <iostream>
 #include <assert.h>
-#include <map>
 #include "Includes/constants.h"
+#include "KeywordManager.h"
 
 using namespace std;
 
@@ -29,6 +29,53 @@ FILE *functions_output;
 std::map<char*, char*> symbols_type_table;
 std::map<char*, char*> function_symbol_table;
 
+
+void lowercase(char *str)
+{
+    for(int i = 0; str[i]; i++){
+        str[i] = (char) std::tolower(str[i]);
+    }
+}
+
+bool tokenWordMatchesKeyword(char *word, char *keyword)
+{
+    /* Convert to lowercase */
+    char *caseInsensitiveToken = new char[strlen(word)];
+    strcpy(caseInsensitiveToken, word);
+    lowercase(caseInsensitiveToken);
+    
+    typedef std::map<char*, char*>::iterator it_type;
+    for(it_type iterator = custom_keywords_table.begin(); iterator != custom_keywords_table.end(); iterator++) {
+        // iterator->first = key
+        // iterator->second = value
+        if(strcmp(iterator->first, keyword) == 0){
+            return (strcmp(caseInsensitiveToken, iterator->second) == 0);
+        }
+    }
+    
+    return false;
+}
+
+bool tokenCharactersMatchesKeyword(const char *source, int start_position, const char *keyword)
+{
+    char *customKeyword = getCustomKeywordForBaseKeyword(keyword);
+    
+    /* Check if the first characters match. */
+    if(source[start_position] != customKeyword[0]){
+        return false;
+    }
+    
+    /* Check if subsequent characters match until a mismatch is found */
+    for(int i = 1; i < strlen(customKeyword); i++){
+        if(source[start_position+i] != customKeyword[i]){
+            return false;
+        }
+    }
+    
+    /* Match */
+    return true;
+}
+
 //returns 0 if failed, 1 if succeeded
 int appendChar(char* s, size_t size, char c) {
     if(strlen(s) + 1 >= size) {
@@ -38,13 +85,6 @@ int appendChar(char* s, size_t size, char c) {
     s[len] = c;
     s[len+1] = '\0';
     return 1;
-}
-
-void lowercase(char *str)
-{
-    for(int i = 0; str[i]; i++){
-        str[i] = (char) std::tolower(str[i]);
-    }
 }
 
 bool isDigit(char *str)
@@ -695,8 +735,7 @@ char** lex(const char *filecontents, int* returnSize)
             /* Reset token */
             strcpy(token,"");
         }
-        else if(strcmp(token,"A") == 0 && checkCharacterInPosition(filecontents,size,i+1,'N')
-                && checkCharacterInPosition(filecontents,size,i+2,'D') && isLookingAtString == false){
+        else if(tokenCharactersMatchesKeyword(filecontents, i, "AND") && isLookingAtString == false){
             /* Tokenise expression or variable */
             if(strcmp(expressionLiteral,"") != 0 && !isExpression){
                 
@@ -724,9 +763,9 @@ char** lex(const char *filecontents, int* returnSize)
             
             tokenList[tokenListSize++] = "&&";
             strcpy(token,"");
-            i+=2;
+            i+=(strlen(getCustomKeywordForBaseKeyword("AND"))-1);
         }
-        else if(strcmp(token,"O") == 0 && checkCharacterInPosition(filecontents,size,i+1,'R') && isLookingAtString == false){
+        else if(tokenCharactersMatchesKeyword(filecontents, i, "OR") && isLookingAtString == false){
             /* Tokenise expression or variable */
             if(strcmp(expressionLiteral,"") != 0 && !isExpression){
                 
@@ -754,44 +793,38 @@ char** lex(const char *filecontents, int* returnSize)
             
             tokenList[tokenListSize++] = "||";
             strcpy(token,"");
-            i+=2;
+            i+=(strlen(getCustomKeywordForBaseKeyword("OR"))-1);
         }
-        else if(strcmp(token,"CREATE_LIST") == 0){
+        else if(tokenWordMatchesKeyword(token, "CREATE_LIST") && !isLookingAtString){
             /* List constructor found */
             tokenList[tokenListSize++] = "MKLST";
             strcpy(token,"");
         }
-        else if(strcmp(token,"ADD_TO_LIST") == 0){
+        else if(tokenWordMatchesKeyword(token, "ADD_TO_LIST") && !isLookingAtString){
             /* List add function found */
             tokenList[tokenListSize++] = "LSTADD";
             strcpy(token,"");
         }
-        else if(strcmp(token,"REMOVE_FROM_POSITION_IN_LIST") == 0){
+        else if(tokenWordMatchesKeyword(token, "REMOVE_FROM_LIST") && !isLookingAtString){
             /* List remove function found */
             tokenList[tokenListSize++] = "LSTRMV_IDX";
             strcpy(token,"");
         }
-        else if(strcmp(token,"PUT_IN_LIST") == 0){
+        else if(tokenWordMatchesKeyword(token, "PUT_IN_LIST") && !isLookingAtString){
             /* List put function found */
             tokenList[tokenListSize++] = "LSTPUT";
             strcpy(token,"");
         }
-        else if(strcmp(token,"disp") == 0){
+        else if(tokenWordMatchesKeyword(token, "disp") && !isLookingAtString){
             /* DISP FOUND */
             tokenList[tokenListSize++] = "DISP";
             strcpy(token,"");
         }
-        else if(strcmp(lowercaseToken,"disp") == 0){
-            /* DISP FOUND */
-            // TODO: Maybe display compile error
-            tokenList[tokenListSize++] = "DISP";
-            strcpy(token,"");
-        }
-        else if(strcmp(token,"endif") == 0){
+        else if(tokenWordMatchesKeyword(token, "endif") && !isLookingAtString){
             tokenList[tokenListSize++] = "ENDIF";
             strcpy(token,"");
         }
-        else if(strcmp(token,"if") == 0){
+        else if(tokenWordMatchesKeyword(token, "if") && !isLookingAtString){
             tokenList[tokenListSize++] = "IF";
             strcpy(token,"");
         }
@@ -822,23 +855,23 @@ char** lex(const char *filecontents, int* returnSize)
                 varStarted = false;
             }
         }
-        else if(strcmp(token,"then") == 0){
+        else if(tokenWordMatchesKeyword(token, "then") && !isLookingAtString){
             tokenList[tokenListSize++] = "THEN";
             strcpy(token,"");
         }
-        else if(strcmp(token,"else") == 0){
+        else if(tokenWordMatchesKeyword(token, "else") && !isLookingAtString){
             tokenList[tokenListSize++] = "ELSE";
             strcpy(token,"");
         }
-        else if(strcmp(token,"elif") == 0){
+        else if(tokenWordMatchesKeyword(token, "elif") && !isLookingAtString){
             tokenList[tokenListSize++] = "ELSEIF";
             strcpy(token,"");
         }
-        else if(strcmp(token,"while") == 0){
+        else if(tokenWordMatchesKeyword(token, "while") && !isLookingAtString){
             tokenList[tokenListSize++] = "WHILE";
             strcpy(token,"");
         }
-        else if(strcmp(token,"endwhile") == 0){
+        else if(tokenWordMatchesKeyword(token, "endwhile") && !isLookingAtString){
             tokenList[tokenListSize++] = "ENDWHILE";
             strcpy(token,"");
         }
@@ -886,19 +919,19 @@ char** lex(const char *filecontents, int* returnSize)
             strcat(var, token);
             strcpy(token,"");
         }
-        else if(strcmp(token,"return") == 0 && !isLookingAtString){
+        else if(tokenWordMatchesKeyword(token, "return") && !isLookingAtString){
             tokenList[tokenListSize++] = "RETURN";
             strcpy(token,"");
             strcpy(funcName,"");
             funcDeclStarted = false;
         }
-        else if(strcmp(token,"endfunc") == 0 && !isLookingAtString){
+        else if(tokenWordMatchesKeyword(token, "endfunc") && !isLookingAtString){
             tokenList[tokenListSize++] = "FUNCTION_CLOSE";
             strcpy(token,"");
             strcpy(funcName,"");
             funcDeclStarted = false;
         }
-        else if(strcmp(token,"func") == 0 && !isLookingAtString){
+        else if(tokenWordMatchesKeyword(token, "func") && !isLookingAtString){
             tokenList[tokenListSize++] = "FUNCTION_DECL";
             strcpy(token,"");
             funcDeclStarted = true;
@@ -2041,17 +2074,27 @@ void parse(char **tokenList, int tokenListSize)
 
 int main(int argc, const char * argv[]) {
 
+    initialiseKeywordsTable();
+    
     openOutputFile();
     
+    updateKeywordsTableFromCommandLine(argc, argv);
+    
     /* Loop through each command line argument */
-    for (int nArg=1; nArg < argc; nArg++){
-        char *filecontents = readFile(argv[nArg]);
-        if(filecontents != NULL){
-            int tokenListSize= 0;
-            char **tokenList = lex(filecontents, &tokenListSize);
-            parse(tokenList, tokenListSize);
+    for (int i=1; i < argc; i++){
+
+        /* If last argument */
+        if(i == argc-1){
+            char *filecontents = readFile(argv[i]);
+            if(filecontents != NULL){
+                int tokenListSize= 0;
+                char **tokenList = lex(filecontents, &tokenListSize);
+                parse(tokenList, tokenListSize);
+            }
         }
     }
+    
+    tokenCharactersMatchesKeyword("", 0, "AND");
     
     /* Print variable symbols table */
     printf("%s\n\nSYMBOLS TABLE\n%s", "\x1B[33m", "\x1B[0m");
@@ -2065,6 +2108,13 @@ int main(int argc, const char * argv[]) {
     for(it_type iterator = function_symbol_table.begin(); iterator != function_symbol_table.end(); iterator++) {
         printf("%s %s -> %s\n%s", "\x1B[33m", iterator->first, iterator->second, "\x1B[0m");
     }
+    
+    printf("%s\nKEYWORDS TABLE\n%s", "\x1B[33m", "\x1B[0m");
+    typedef std::map<char*, char*>::iterator it_type;
+    for(it_type iterator = custom_keywords_table.begin(); iterator != custom_keywords_table.end(); iterator++) {
+        printf("%s %s -> %s\n%s", "\x1B[33m", iterator->first, iterator->second, "\x1B[0m");
+    }
+    
     
     closeOutputFile();
     system("g++ language_run.cpp -o gary_executable");

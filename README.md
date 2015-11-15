@@ -4,7 +4,7 @@ Simple procedural programming language for general purpose scripts.
 _**Note: While some features (docmented below) are available, Gary is still a work in progress. Please stay tuned for a stable release.**_
 
 ### New! Gary mini IDE ###
-![Screenshot](https://github.com/oduwa/Gary/blob/master/ReadmeResources/screen1)
+![Screenshot](https://github.com/oduwa/Gary/blob/master/ReadmeResources/screen1.png)
 
 ### Variable Types and Assignment
 Values are assigned to variables using the << operator. Gary is a weakly-typed language. Basically, this means that you do not need to specify the type of a variable when you declare it. Its type is inferred from the value it is assigned.

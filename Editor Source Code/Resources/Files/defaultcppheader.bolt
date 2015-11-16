@@ -1,0 +1,18 @@
+//
+//  main.cpp
+//  Created with Bolt IDE
+//
+//  Starting point of application.
+//
+#include <iostream>
+
+using namespace std;
+
+int main(){
+
+    /* printf is cool too */
+    cout << "Hello world from Bolt!" << endl;
+
+    return 0;
+
+}

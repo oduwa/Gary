@@ -1,0 +1,9 @@
+@name << "odie";
+@age << 21;
+
+showmeit @name;
+showmeit @age;
+
+if 69 > @age then
+showmeit "YOUNGER THATN 69"
+endif

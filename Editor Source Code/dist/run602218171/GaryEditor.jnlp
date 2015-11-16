@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<jnlp spec="1.0" xmlns:jfx="http://javafx.com" href="GaryEditor.jnlp">
+  <information>
+    <title>GaryEditor</title>
+    <vendor>Odie</vendor>
+    <description>null</description>
+    <offline-allowed/>
+  </information>
+  <resources>
+    <j2se version="1.6+" href="http://java.sun.com/products/autodl/j2se"/>
+    <jar href="GaryEditor.jar" size="85358" download="eager" />
+    <jar href="lib/richtextfx-fat-0.6.10.jar" size="675497" download="eager" />
+  </resources>
+  <applet-desc  width="800" height="600" main-class="com.javafx.main.NoJavaFXFallback"  name="GaryEditor" >
+    <param name="requiredFXVersion" value="8.0+"/>
+  </applet-desc>
+  <jfx:javafx-desc  width="800" height="600" main-class="garyeditor.GaryEditor"  name="GaryEditor" />
+  <update check="always"/>
+</jnlp>

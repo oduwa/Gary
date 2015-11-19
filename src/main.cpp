@@ -7,8 +7,8 @@
 //
 
 #include <iostream>
-#include <assert.h>
 #include "Includes/constants.h"
+#include "Includes/Utility.h"
 #include "KeywordManager.h"
 
 using namespace std;
@@ -28,6 +28,7 @@ FILE *main_output;
 FILE *functions_output;
 std::map<char*, char*> symbols_type_table;
 std::map<char*, char*> function_symbol_table;
+bool isPrintingEnabled = false;
 
 
 void lowercase(char *str)
@@ -138,54 +139,6 @@ bool isArithmeticOperator(char c)
     }
 }
 
-char** str_split(char* a_str, const char a_delim)
-{
-    char** result    = 0;
-    size_t count     = 0;
-    char* tmp        = a_str;
-    char* last_comma = 0;
-    char delim[2];
-    delim[0] = a_delim;
-    delim[1] = 0;
-    
-    /* Count how many elements will be extracted. */
-    while (*tmp)
-    {
-        if (a_delim == *tmp)
-        {
-            count++;
-            last_comma = tmp;
-        }
-        tmp++;
-    }
-    
-    /* Add space for trailing token. */
-    count += last_comma < (a_str + strlen(a_str) - 1);
-    
-    /* Add space for terminating null string so caller
-     knows where the list of returned strings ends. */
-    count++;
-    
-    result = (char **) malloc(sizeof(char*) * count);
-    
-    if (result)
-    {
-        size_t idx  = 0;
-        char* token = strtok(a_str, delim);
-        
-        while (token)
-        {
-            assert(idx < count);
-            *(result + idx++) = strdup(token);
-            token = strtok(0, delim);
-        }
-        assert(idx == count - 1);
-        *(result + idx) = 0;
-    }
-    
-    return result;
-}
-
 char* lookupVariableType(char* varname)
 {
     typedef std::map<char*, char*>::iterator it_type;
@@ -226,28 +179,6 @@ bool isVariableDefined(char *varname)
     }
     
     return false;
-}
-
-char* readFile(const char *filename)
-{
-    /* Open File */
-    FILE *f = fopen(filename, "rb");
-    if(f == NULL){
-        return NULL;
-    }
-    fseek(f, 0, SEEK_END);
-    long fsize = ftell(f);
-    fseek(f, 0, SEEK_SET);
-    
-    /* Create string. Note the +1 for the null terminator */
-    char *string = (char*) malloc(fsize + 1);
-    fread(string, fsize, 1, f);
-    fclose(f);
-    
-    /* Add null terminator */
-    string[fsize] = '\0';
-    
-    return string;
 }
 
 void openOutputFile()
@@ -391,7 +322,7 @@ char** lex(const char *filecontents, int* returnSize)
     char **tokenList = new char*[MAX_TOKEN_LIST_SIZE];
     int tokenListSize = 0;
     
-    printf("File contains %d characters\n", size);
+    if(isPrintingEnabled){printf("File contains %d characters\n", size);}
     for(int i = 0; i < size; i++){
         /* increment token */
         appendChar(token, MAX_LANG_FILE_SIZE, filecontents[i]);
@@ -402,7 +333,7 @@ char** lex(const char *filecontents, int* returnSize)
         else{
             prevChar = '\0';
         }
-        printf("TOKEN: %s\n", token);
+        if(isPrintingEnabled){printf("TOKEN: %s\n", token);}
         
         /* lex. Should reset the token variable each time we find a valid token. */
         if(strcmp(token," ") == 0 || strcmp(token,"\t") == 0){
@@ -418,7 +349,7 @@ char** lex(const char *filecontents, int* returnSize)
             lineIsComment = false;
             strcpy(token,"");
             if(strcmp(expressionLiteral,"") != 0 && isExpression){
-                printf("\t\tEXPR: %s\n", expressionLiteral);
+                //printf("\t\tEXPR: %s\n", expressionLiteral);
                 
                 /* Create and add token for string literal */
                 char strbuff[1000];
@@ -470,8 +401,6 @@ char** lex(const char *filecontents, int* returnSize)
         }
         else if(strcmp(token,"+") == 0 && prevChar == '+' && !varStarted){
             
-            printf("XXXXXX\n");
-            
             /* Create and add token for variable name */
             char strbuff[1000];
             sprintf(strbuff, "PLUSPLUS");
@@ -482,13 +411,13 @@ char** lex(const char *filecontents, int* returnSize)
             /* Reset token */
             strcpy(token,"");
         }
-        else if(strcmp(token,"<") == 0 && prevChar == '<' && isLookingAtString == false){
-            printf("\t1\n");
+        else if(tokenCharactersMatchesKeyword(filecontents, i, "assign") && isLookingAtString == false){
+
             /* Detect variable name and add to tokens list */
             if(strcmp(var,"") != 0){
                 /* Create and add token for variable name */
                 //printf("var: %s strlen: %d\n", var, strlen(var));
-                var[strlen(var)-1] = '\0';// COMMENT OUT IF ASSIGNMENT OPERTOR IS ONLY ONE CHARACTER
+                //var[strlen(var)] = '\0';// COMMENT OUT IF ASSIGNMENT OPERTOR IS ONLY ONE CHARACTER
                 char strbuff[1000];
                 sprintf(strbuff, "VAR:%s", var);
                 tokenList[tokenListSize] = new char[MAX_STRING_SIZE];
@@ -510,6 +439,7 @@ char** lex(const char *filecontents, int* returnSize)
             /* Reset token */
             strcpy(token,"");
             
+            i+=(strlen(getCustomKeywordForBaseKeyword("assign"))-1);
         }
         else if(strcmp(token,"<") == 0 && filecontents[i+1] == '=' && isLookingAtString == false){
             
@@ -828,7 +758,7 @@ char** lex(const char *filecontents, int* returnSize)
             tokenList[tokenListSize++] = "IF";
             strcpy(token,"");
         }
-        else if(filecontents[i] == 't' && filecontents[i+1] == 'h' && filecontents[i+2] == 'e' && filecontents[i+3] == 'n'){
+        else if(tokenCharactersMatchesKeyword(filecontents, i, "then") && !isLookingAtString){
             
             /* Make delimiter for == expression */
             if(strcmp(expressionLiteral,"") != 0 && !isExpression){
@@ -875,11 +805,11 @@ char** lex(const char *filecontents, int* returnSize)
             tokenList[tokenListSize++] = "ENDWHILE";
             strcpy(token,"");
         }
-        else if(isDigit(token) == true){
+        else if(isDigit(token) == true && !isLookingAtString){
             strcat(expressionLiteral, token);
             strcpy(token,"");
         }
-        else if(isArithmeticOperator(token) == true){
+        else if(isArithmeticOperator(token) == true && !isLookingAtString){
             isExpression = true;
             strcat(expressionLiteral, token);
             strcpy(token,"");
@@ -1063,12 +993,14 @@ char** lex(const char *filecontents, int* returnSize)
 
 void parse(char **tokenList, int tokenListSize)
 {
-    printf("%s\nPARSE! TOKEN LIST: \n",KGRN);
-    for(int i = 0; i < tokenListSize; i++){
-        printf("%s\n", tokenList[i]);
+    if(isPrintingEnabled){
+        printf("%s\nPARSE! TOKEN LIST: \n", KGRN);
+        for(int i = 0; i < tokenListSize; i++){
+            printf("%s\n", tokenList[i]);
+        }
+        printf("\nPARSE! END TOKEN LIST: \n%s", KNRM);
+        printf("\n");
     }
-    printf("%s\nPARSE! END TOKEN LIST: \n",KNRM);
-    printf("\n");
     
     bool isWritingFunction = false;
     
@@ -1146,7 +1078,7 @@ void parse(char **tokenList, int tokenListSize)
 
                 /* Print */
                 char *vartype = lookupVariableType(varname+1);
-                printf("PRINT VARTYPE: %s\n", vartype);
+                //printf("PRINT VARTYPE: %s\n", vartype);
                 if(strcmp(vartype,"STRING") == 0){
                     char line[100];
                     //sprintf(line, "printf(\"%%s\\n\", %s);\n", varname+1);
@@ -1195,12 +1127,6 @@ void parse(char **tokenList, int tokenListSize)
                 char **split2 = str_split(strbuff2, ':');
                 prefix2 = split2[0];
                 free(split2);
-                if(strcmp(prefix2, "VAR") == 0){
-                    printf("FOUND IT |%s| preceding |%s|\n", prefix2, prefix);
-                }
-            }
-            else{
-                printf("PIZZA");
             }
             
             
@@ -1590,7 +1516,7 @@ void parse(char **tokenList, int tokenListSize)
             char **lhsTokenSplit = str_split(strbuff, ':');
             char *lhsTokenPrefix = lhsTokenSplit[0];
             free(lhsTokenSplit);
-            printf("LHS: %s\n", lhsTokenPrefix);
+            //printf("LHS: %s\n", lhsTokenPrefix);
             
             /* Right hand side. Get token prefix */
             char strbuff2[100];
@@ -1598,7 +1524,7 @@ void parse(char **tokenList, int tokenListSize)
             char **rhsTokenSplit = str_split(strbuff2, ':');
             char *rhsTokenPrefix = rhsTokenSplit[0];
             free(rhsTokenSplit);
-            printf("RHS: %s\n", rhsTokenPrefix);
+            //printf("RHS: %s\n", rhsTokenPrefix);
             
             /* Create new if-scope */
             fputs("while(", fileOutput);
@@ -1639,8 +1565,8 @@ void parse(char **tokenList, int tokenListSize)
                 rhsValue[(rhsTokenSize-5)] = '\0';
             }
             
-            printf("LV: %s\n", lhsValue);
-            printf("RV: %s\n", rhsValue+1);
+            //printf("LV: %s\n", lhsValue);
+            //printf("RV: %s\n", rhsValue+1);
             
             /* Create expression based on operator */
             char condition[100];
@@ -1709,7 +1635,6 @@ void parse(char **tokenList, int tokenListSize)
             FILE *fileOutput;
             fileOutput = (isWritingFunction == false) ? main_output : functions_output;
             
-            printf("\tFUNCTION NAME = %s\n", tokenList[i+1]);
             /* Get function name from token list */
             char *funcName = tokenList[i+1];
             bool hasArguments = true;
@@ -1765,7 +1690,7 @@ void parse(char **tokenList, int tokenListSize)
             strcpy(strbuff, tokenList[j]);
             char **split = str_split(strbuff, ':');
             char *funcReturnType = split[1];
-            printf("\tRETURN TYPE = %s FROM TOKEN:%s\n", funcReturnType, tokenList[j]);
+            //printf("\tRETURN TYPE = %s FROM TOKEN:%s\n", funcReturnType, tokenList[j]);
             
             if(strcmp(funcReturnType, "string") == 0){
                 delete [] funcReturnType;
@@ -2073,18 +1998,24 @@ void parse(char **tokenList, int tokenListSize)
 }
 
 int main(int argc, const char * argv[]) {
-
-    initialiseKeywordsTable();
     
     openOutputFile();
     
-    updateKeywordsTableFromCommandLine(argc, argv);
+    loadKeywordsFromConfigFile();
     
     /* Loop through each command line argument */
     for (int i=1; i < argc; i++){
 
+        if(strcmp(argv[i], "-T") == 0){
+            isPrintingEnabled = true;
+        }
+        
         /* If last argument */
         if(i == argc-1){
+            /* Append new line to end of source file */
+            appendToFile(argv[i], "\n");
+            
+            /* Get source */
             char *filecontents = readFile(argv[i]);
             if(filecontents != NULL){
                 int tokenListSize= 0;
@@ -2094,31 +2025,37 @@ int main(int argc, const char * argv[]) {
         }
     }
     
-    tokenCharactersMatchesKeyword("", 0, "AND");
     
-    /* Print variable symbols table */
-    printf("%s\n\nSYMBOLS TABLE\n%s", "\x1B[33m", "\x1B[0m");
-    typedef std::map<char*, char*>::iterator it_type;
-    for(it_type iterator = symbols_type_table.begin(); iterator != symbols_type_table.end(); iterator++) {
-        printf("%s %s -> %s\n%s", "\x1B[33m", iterator->first, iterator->second, "\x1B[0m");
+    if(isPrintingEnabled){
+        /* Print variable symbols table */
+        printf("%s\n\nSYMBOLS TABLE\n%s", "\x1B[33m", "\x1B[0m");
+        typedef std::map<char*, char*>::iterator it_type;
+        for(it_type iterator = symbols_type_table.begin(); iterator != symbols_type_table.end(); iterator++) {
+            printf("%s %s -> %s\n%s", "\x1B[33m", iterator->first, iterator->second, "\x1B[0m");
+        }
+        
+        printf("%s\n\nFUNCTIONS TABLE\n%s", "\x1B[33m", "\x1B[0m");
+        typedef std::map<char*, char*>::iterator it_type;
+        for(it_type iterator = function_symbol_table.begin(); iterator != function_symbol_table.end(); iterator++) {
+            printf("%s %s -> %s\n%s", "\x1B[33m", iterator->first, iterator->second, "\x1B[0m");
+        }
+        
+        printf("%s\nKEYWORDS TABLE\n%s", "\x1B[33m", "\x1B[0m");
+        typedef std::map<char*, char*>::iterator it_type;
+        for(it_type iterator = custom_keywords_table.begin(); iterator != custom_keywords_table.end(); iterator++) {
+            printf("%s %s -> %s\n%s", "\x1B[33m", iterator->first, iterator->second, "\x1B[0m");
+        }
     }
-    
-    printf("%s\n\nFUNCTIONS TABLE\n%s", "\x1B[33m", "\x1B[0m");
-    typedef std::map<char*, char*>::iterator it_type;
-    for(it_type iterator = function_symbol_table.begin(); iterator != function_symbol_table.end(); iterator++) {
-        printf("%s %s -> %s\n%s", "\x1B[33m", iterator->first, iterator->second, "\x1B[0m");
-    }
-    
-    printf("%s\nKEYWORDS TABLE\n%s", "\x1B[33m", "\x1B[0m");
-    typedef std::map<char*, char*>::iterator it_type;
-    for(it_type iterator = custom_keywords_table.begin(); iterator != custom_keywords_table.end(); iterator++) {
-        printf("%s %s -> %s\n%s", "\x1B[33m", iterator->first, iterator->second, "\x1B[0m");
-    }
-    
-    
+
     closeOutputFile();
-    system("g++ language_run.cpp -o gary_executable");
-    system("./gary_executable");
+    int res = system("g++ language_run.cpp -o gary_executable");
+    if(res == 0){
+        system("./gary_executable");
+    }
+    else{
+        printf("COMPILE ERROR\n");
+    }
+    
 
     return 0;
 }

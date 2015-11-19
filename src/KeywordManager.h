@@ -2,6 +2,8 @@
 #define __Keyword_Manager__
 
 #include <map>
+#include "Includes/constants.h"
+#include "Includes/Utility.h"
 
 
 std::map<char*, char*> custom_keywords_table;
@@ -24,6 +26,8 @@ void initialiseKeywordsTable()
     custom_keywords_table["func"] = "func";
     custom_keywords_table["endfunc"] = "endfunc";
     
+    custom_keywords_table["increment"] = "increment";
+    custom_keywords_table["decrement"] = "decrement";
     custom_keywords_table["CREATE_LIST"] = "create_list"; // function remove(type, size)
     custom_keywords_table["ADD_TO_LIST"] = "add_to_list"; // function add(list, value)
     custom_keywords_table["PUT_IN_LIST"] = "put_in_list"; // function put(list, index, value)
@@ -50,6 +54,31 @@ char* getCustomKeywordForBaseKeyword(const char *baseKeyword)
     }
     
     return "";
+}
+
+void loadKeywordsFromConfigFile()
+{
+    initialiseKeywordsTable();
+    
+    char *configFileContents = readFile(KEYWORD_CONFIG_FILE_PATH);
+    char **lines = str_split(configFileContents, '\n');
+    
+    for(int i = 0; i < KEYWORD_COUNT; i++){
+        char *line = lines[i];
+
+        char **lineSplit = str_split(line, '%');
+        char *keyword = lineSplit[0];
+        char *customKeyword = new char[50];
+        strcpy(customKeyword, lineSplit[1]);
+        updateKeywordTable(keyword, customKeyword);
+        
+        free(lineSplit[0]);
+        free(lineSplit[1]);
+        free(lineSplit);
+        free(lines[i]);
+    }
+    
+    free(lines);
 }
 
 void updateKeywordsTableFromCommandLine(int argc, const char * argv[])

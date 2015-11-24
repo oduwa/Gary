@@ -22,7 +22,7 @@
 }
 
 .comment {
-	-fx-fill: lightgreen;/*cadetblue;*/
+	-fx-fill: #008342;/*cadetblue;*/
 }
 
 .variable {

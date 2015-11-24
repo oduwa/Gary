@@ -25,6 +25,13 @@ char* readFile(const char *filename)
     return string;
 }
 
+void appendToFile(const char *filename, const char *text)
+{
+    FILE *file = fopen(filename, "a");
+    fprintf(file, "%s", text);
+    fclose(file);
+}
+
 char** str_split(char* a_str, const char a_delim)
 {
     char** result    = 0;

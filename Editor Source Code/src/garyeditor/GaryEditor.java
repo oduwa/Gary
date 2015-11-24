@@ -164,8 +164,18 @@ public class GaryEditor extends Application {
                 }
                 
                 //consoleArea.appendText(Helper.executeCommand("pwd") + "\n");
-                consoleArea.appendText("./gary \"" + filename + "\"" + "\n");
-                consoleArea.appendText(Helper.executeCommand("./gary " + filename) + "\n");
+                String osName = System.getProperty("os.name");
+                
+                if(osName.startsWith("Windows")){
+                    consoleArea.appendText("\nKiddyC.exe \"" + filename + "\"" + "\n\n");
+                    consoleArea.appendText((Helper.executeCommand("KiddyC.exe " + filename) + "\n").replace("[35m", "").replace("[0m", ""));
+                }
+                else{
+                    consoleArea.appendText("\n./KiddyC \"" + filename + "\"" + "\n\n");
+                    consoleArea.appendText((Helper.executeCommand("./KiddyC " + filename) + "\n").replace("[35m", "").replace("[0m", ""));
+                }
+                
+                
             }
         });
         

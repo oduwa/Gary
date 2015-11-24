@@ -16,5 +16,6 @@ FILE *functions_output;
 std::map<char*, char*> symbols_type_table;
 std::map<char*, char*> function_symbol_table;
 bool isPrintingEnabled = false;
+bool showGeneratedFiles = false;
 
 #endif

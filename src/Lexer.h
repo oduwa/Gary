@@ -635,6 +635,10 @@ char** lex(const char *filecontents, int* returnSize)
                 /* Add closing quote to string literal */
                 strcat(stringLiteral, "\"");
                 
+                #ifdef _WIN32
+                stringLiteral = stringLiteral + 1;
+                #endif
+                
                 /* Create and add token for string literal */
                 char strbuff[1000];
                 sprintf(strbuff, "STRING: %s", stringLiteral);

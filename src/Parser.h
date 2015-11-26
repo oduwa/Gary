@@ -572,9 +572,8 @@ void parse(char **tokenList, int tokenListSize)
             i++;
         }
         else if((strcmp(tokenList[i],"WHILE") == 0) && strcmp(tokenList[i+4],"THEN") == 0){
-            
             FILE *fileOutput;
-            fileOutput = (isWritingFunction == false) ? fileOutput : functions_output;
+            fileOutput = (isWritingFunction == false) ? main_output : functions_output;
             
             if(strcmp(tokenList[i],"ELSEIF") == 0){
                 fputs("} ", fileOutput);
@@ -658,6 +657,7 @@ void parse(char **tokenList, int tokenListSize)
             else if(strcmp(tokenList[i+2],"LESS") == 0){
                 sprintf(condition, "%s < %s", lhsValue, rhsValue+1);
             }
+            
             fputs(condition, fileOutput);
             
             fputs("){\n", fileOutput);

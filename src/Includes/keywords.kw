@@ -17,3 +17,5 @@ CREATE_LIST%create_list
 ADD_TO_LIST%add_to_list
 PUT_IN_LIST%put_in_list
 REMOVE_FROM_LIST%remove_from_position_in_list
+increment%increment
+decrement%decrement

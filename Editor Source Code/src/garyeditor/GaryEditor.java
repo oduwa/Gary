@@ -81,7 +81,7 @@ public class GaryEditor extends Application {
         Scene scene = new Scene(root, 640, 400);
         SyntaxHighlighter.applyStyleSheetToScene(scene, "java-keywords.css");
         
-        primaryStage.setTitle("Gary");
+        primaryStage.setTitle("KiddyC Playground");
         primaryStage.setScene(scene);
         primaryStage.show();
         stage = primaryStage;

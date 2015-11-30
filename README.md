@@ -8,21 +8,21 @@ _**Gary**_ is case insensitive. This means that keywords can be upper case, lowe
 _**Note: While some features (docmented below) are available, Gary is still a work in progress. Please stay tuned for a stable release.**_
 
 ### Setup and Keyword Customisation ###
-Simply download the repository and copy the _dist_ directory to wherever you want to use it. To start writing programs in _**Gary**_, simply run the *GaryEditor.jar* file to start the mini IDE and get cracking! The default setup of syntax and keywords is described in the following sections. To setup your own keywords, use the _KeywordConfig_ command line program distributed with _**Gary**_. Spaces are not allowed in custom keywords. To separate words in a keyword, the underscore character (``\_'') may be used instead. The signature of the tool is as follows:
+Simply download the repository and copy the _dist_ directory to wherever you want to use it. To start writing programs in _**Gary**_, simply run the *GaryEditor.jar* file to start the mini IDE and get cracking! The default setup of syntax and keywords is described in the following sections. To setup your own keywords, use the _KeywordConfig_ command line program distributed with _**Gary**_. Spaces are not allowed in custom keywords. To separate words in a keyword, the underscore character (\_) may be used instead. The signature of the tool is as follows:
 
 Unix:
-```
+```bash
 ./KeywordConfig [OPTIONS]
 ```
 
 Windows:
-```
+```bash
 KeywordConfig.exe [OPTIONS]
 ```
 
 An example command for how this program can be used is as follows -
 
-```
+```bash
 # This command will change the "disp", "increment" and
 # "while" keywords to "print", "plusplus" and "round_and_round".
 #
@@ -122,4 +122,24 @@ disp @words;
 | ------------- | ----------- |
 | -if      | Replacement for _**if**_ keyword |
 | -then     | Replacement for _**then**_ keyword     |
+| -else      | Replacement for _**else**_ keyword |
+| -elif      | Replacement for _**elif**_ keyword |
+| -endif      | Replacement for _**endif**_ keyword |
+| -while      | Replacement for _**while**_ keyword |
+| -ewhile      | Replacement for _**endwhile**_ keyword |
+| -assgn      | Replacement for _**<<**_, the assignment operator |
+| -and      | Replacement for _**AND**_ keyword |
+| -or      | Replacement for _**OR**_ keyword |
+| -e      | Replacement for _**==**_, the equality operator |
+| -disp      | Replacement for _**disp**_ keyword |
+| -ret      | Replacement for _**return**_ keyword |
+| -func      | Replacement for _**func**_ keyword |
+| -efunc      | Replacement for _**endfunc**_ keyword |
+| -lmake      | Replacement for _**CREATE\_LIST**_ keyword |
+| -ladd      | Replacement for _**ADD\_TO\_LIST**_ keyword |
+| -lput      | Replacement for _**PUT\_IN\_LIST**_ keyword |
+| -lrmv      | Replacement for _**REMOVE\_FROM\_LIST**_ keyword |
+| -pls      | Replacement for _**INCREMENT**_ keyword |
+| -mns      | Replacement for _**DECREMENT**_ keyword |
+
 

@@ -1,7 +1,7 @@
 # Gary
 Simple procedural programming language for general purpose scripts.
 
-![Screenshot](https://github.com/oduwa/Gary/blob/master/ReadmeResources/screen1.png)
+![Screenshot](https://github.com/oduwa/Gary/blob/master/ReadmeResources/screen2.png)
 
 _**Gary**_ is case insensitive. This means that keywords can be upper case, lower case or even a mix of both and still work. Also, note that semicolons are not necessary at the end of each line but are optional. Programming statements are logically separated by new lines. However, if you want multiple programming statements on the same line, a semicolon is necessary at the end of each line. Below are the features of the language and how they are used by default. The keywords can be customised to use other words but the idea is the same. 
 

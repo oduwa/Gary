@@ -8,7 +8,7 @@ _**Gary**_ is case insensitive. This means that keywords can be upper case, lowe
 _**Note: While some features (docmented below) are available, Gary is still a work in progress. Please stay tuned for a stable release.**_
 
 ### Setup and Keyword Customisation ###
-Simply download the repository and copy the _dist_ directory to wherever you want to use it. To start writing programs in _**Gary**_, simply run the *GaryEditor.jar* file to start the mini IDE and get cracking! The default setup of syntax and keywords is described in the following sections. To setup your own keywords, use the _KeywordConfig_ command line program distributed with _**Gary**_. Spaces are not allowed in custom keywords. To separate words in a keyword, the underscore character (\_) may be used instead. The signature of the tool is as follows:
+Simply download the repository and copy the _dist_ directory to wherever you want to use it. To start writing programs in _**Gary**_, simply run the *GaryEditor.jar* file to start the mini IDE and get cracking! The default setup of syntax and keywords is described in the following sections. To setup your own keywords, use the _KeywordConfig_ command line program distributed with _**Gary**_. Spaces are not allowed in custom keywords. To separate words in a keyword, the underscore character ("\_") may be used instead. The signature of the tool is as follows:
 
 Unix:
 ```bash

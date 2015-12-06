@@ -91,7 +91,7 @@ int main(int argc, const char * argv[]) {
 
     closeOutputFile();
     
-    /* Detect command line environment */
+    /* Detect command line environment and invoke compiler from command line */
     #ifdef _WIN32
     
     int res = system("g++ language_run.cpp -o language_executable");

@@ -183,6 +183,16 @@ void updateKeywordsTableFromCommandLine(int argc, const char * argv[])
             arg = argv[i];
             updateKeywordTable("REMOVE_FROM_LIST", arg);
         }
+        else if(strcmp(arg, "-pls") == 0){
+            i+=1;
+            arg = argv[i];
+            updateKeywordTable("increment", arg);
+        }
+        else if(strcmp(arg, "-mns") == 0){
+            i+=1;
+            arg = argv[i];
+            updateKeywordTable("decrement", arg);
+        }
     }
 }
 

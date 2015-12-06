@@ -1,4 +1,8 @@
+#include <stdio.h>
 #include <iostream>
+#include <cstring>
+#include <cstdlib>
+
 #include "Includes/Utility.h"
 #include "Includes/constants.h"
 #include "KeywordManager.h"

@@ -134,7 +134,7 @@ void parse(char **tokenList, int tokenListSize)
                 
                 /* Print */
                 char line[100];
-                sprintf(line, "printf(\"%%lu\\n\", expression);\n");
+                sprintf(line, "printf(\"%%ld\\n\", expression);\n");
                 fputs(line, fileOutput);
                 delete [] literal;
             }
@@ -157,7 +157,7 @@ void parse(char **tokenList, int tokenListSize)
                 }
                 else if(strcmp(vartype,"NUM") == 0){
                     char line[100];
-                    sprintf(line, "printf(\"%%lu\\n\", %s);\n", varname+1);
+                    sprintf(line, "printf(\"%%ld\\n\", %s);\n", varname+1);
                     fputs(line, fileOutput);
                 }
                 else if(strstr(vartype, "LIST<") != NULL){
@@ -549,7 +549,10 @@ void parse(char **tokenList, int tokenListSize)
                 conditionCount++;
                 i += 4;
             }
-            printf("CONDITIONS: %s\n", conditions);
+            if(isPrintingEnabled){
+                printf("CONDITIONS: %s\n", conditions);
+            }
+
             fputs(conditions, fileOutput);
             
             fputs("){\n", fileOutput);
@@ -1015,7 +1018,9 @@ void parse(char **tokenList, int tokenListSize)
             char *callParameters = new char[MAX_DIGIT_SIZE+10];
             strcpy(callParameters, callToken+6);
             callParameters[strlen(callParameters)-1] = '\0';
-            printf("%sPUT WITH ARGUMENTS: %s%s\n", KRED, callParameters, KNRM);
+            if(isPrintingEnabled){
+               printf("%sPUT WITH ARGUMENTS: %s%s\n", KRED, callParameters, KNRM);
+            }
             
             /*
              * Split array parameters to get them separately from "@<array_variable_name>, <index_to_put>, <value>".
@@ -1025,7 +1030,10 @@ void parse(char **tokenList, int tokenListSize)
             char *listIndex = paramsSplit[1];
             char *newValue = paramsSplit[2];
             free(paramsSplit);
-            printf("%sSPLIT  RESULT: x%sx x%sx x%sx\n%s", KRED, listName, listIndex, newValue, KNRM);
+            if(isPrintingEnabled){
+                printf("%sSPLIT  RESULT: x%sx x%sx x%sx\n%s", KRED, listName, listIndex, newValue, KNRM);
+            }
+            
             
             /* Clean input. convert index to int */
             int index_to_put = atoi(listIndex);

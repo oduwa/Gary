@@ -404,6 +404,13 @@ void parse(char **tokenList, int tokenListSize)
                 memcpy(lhsValue, lhsToken+5, (lhsTokenSize-5));
                 lhsValue[(lhsTokenSize-5)] = '\0';
             }
+            else if(strcmp(lhsTokenPrefix,"STRING") == 0){
+                lhsValue = new char[MAX_DIGIT_SIZE];
+                char *lhsToken = tokenList[i+1];
+                int lhsTokenSize = strlen(lhsToken);
+                memcpy(lhsValue, lhsToken+8, (lhsTokenSize-8));
+                lhsValue[(lhsTokenSize-8)] = '\0';
+            }
             
             /* Get right value of expression */
             if(strcmp(rhsTokenPrefix,"NUM") == 0){
@@ -420,9 +427,13 @@ void parse(char **tokenList, int tokenListSize)
                 memcpy(rhsValue, rhsToken+5, (rhsTokenSize-5));
                 rhsValue[(rhsTokenSize-5)] = '\0';
             }
-            
-            //printf("LV: %s\n", lhsValue);
-            //printf("RV: %s\n", rhsValue+1);
+            else if(strcmp(rhsTokenPrefix,"STRING") == 0){
+                rhsValue = new char[MAX_DIGIT_SIZE];
+                char *rhsToken = tokenList[i+3];
+                int rhsTokenSize = strlen(rhsToken);
+                memcpy(rhsValue, rhsToken+8, (rhsTokenSize-8));
+                rhsValue[(rhsTokenSize-8)] = '\0';
+            }
             
             /* Create expression based on operator */
             char condition[100];
@@ -444,6 +455,30 @@ void parse(char **tokenList, int tokenListSize)
             else if(strcmp(tokenList[i+2],"LESS") == 0){
                 sprintf(condition, "%s < %s", lhsValue, rhsValue+1);
             }
+            
+            /* Handle String comparisons */
+            if(strcmp(lhsTokenPrefix,"STRING") == 0 || strcmp(rhsTokenPrefix,"STRING") == 0){
+                if(strcmp(tokenList[i+2],"EQUALITY") == 0){
+                    sprintf(condition, "strcmp(%s, %s) == 0", lhsValue, rhsValue+1);
+                }
+                else if(strcmp(tokenList[i+2],"LESSOREQUALS") == 0){
+                    sprintf(condition, "strcmp(%s, %s) <= 0", lhsValue, rhsValue+1);
+                }
+                else if(strcmp(tokenList[i+2],"GREATEROREQUALS") == 0){
+                    sprintf(condition, "strcmp(%s, %s) >= 0", lhsValue, rhsValue+1);
+                }
+                else if(strcmp(tokenList[i+2],"NOTEQUALS") == 0){
+                    sprintf(condition, "strcmp(%s, %s) != 0", lhsValue, rhsValue+1);
+                }
+                else if(strcmp(tokenList[i+2],"GREATER") == 0){
+                    sprintf(condition, "strcmp(%s, %s) > 0", lhsValue, rhsValue+1);
+                }
+                else if(strcmp(tokenList[i+2],"LESS") == 0){
+                    sprintf(condition, "strcmp(%s, %s) < 0", lhsValue, rhsValue+1);
+                }
+            }
+
+            
             fputs(condition, fileOutput);
             
             fputs("){\n", fileOutput);
@@ -480,6 +515,7 @@ void parse(char **tokenList, int tokenListSize)
                 free(rhsTokenSplit);
                 
                 
+                
                 /** Create conditional expression based on type of lhs and rhs **/
                 /* Get left value of expression */
                 char *lhsValue;
@@ -498,6 +534,13 @@ void parse(char **tokenList, int tokenListSize)
                     memcpy(lhsValue, lhsToken+5, (lhsTokenSize-5));
                     lhsValue[(lhsTokenSize-5)] = '\0';
                 }
+                else if(strcmp(lhsTokenPrefix,"STRING") == 0){
+                    lhsValue = new char[MAX_DIGIT_SIZE];
+                    char *lhsToken = tokenList[i+1];
+                    int lhsTokenSize = strlen(lhsToken);
+                    memcpy(lhsValue, lhsToken+8, (lhsTokenSize-8));
+                    lhsValue[(lhsTokenSize-8)] = '\0';
+                }
                 
                 /* Get right value of expression */
                 if(strcmp(rhsTokenPrefix,"NUM") == 0){
@@ -513,6 +556,13 @@ void parse(char **tokenList, int tokenListSize)
                     int rhsTokenSize = strlen(rhsToken);
                     memcpy(rhsValue, rhsToken+5, (rhsTokenSize-5));
                     rhsValue[(rhsTokenSize-5)] = '\0';
+                }
+                else if(strcmp(rhsTokenPrefix,"STRING") == 0){
+                    rhsValue = new char[MAX_DIGIT_SIZE];
+                    char *rhsToken = tokenList[i+3];
+                    int rhsTokenSize = strlen(rhsToken);
+                    memcpy(rhsValue, rhsToken+8, (rhsTokenSize-8));
+                    rhsValue[(rhsTokenSize-8)] = '\0';
                 }
                 
                 /* Create expression based on operator */
@@ -535,6 +585,30 @@ void parse(char **tokenList, int tokenListSize)
                 else if(strcmp(tokenList[i+2],"LESS") == 0){
                     sprintf(condition, "%s < %s", lhsValue, rhsValue+1);
                 }
+                
+                /* Handle String comparisons */
+                if(strcmp(lhsTokenPrefix,"STRING") == 0 || strcmp(rhsTokenPrefix,"STRING") == 0){
+                    if(strcmp(tokenList[i+2],"EQUALITY") == 0){
+                        sprintf(condition, "strcmp(%s, %s) == 0", lhsValue, rhsValue+1);
+                    }
+                    else if(strcmp(tokenList[i+2],"LESSOREQUALS") == 0){
+                        sprintf(condition, "strcmp(%s, %s) <= 0", lhsValue, rhsValue+1);
+                    }
+                    else if(strcmp(tokenList[i+2],"GREATEROREQUALS") == 0){
+                        sprintf(condition, "strcmp(%s, %s) >= 0", lhsValue, rhsValue+1);
+                    }
+                    else if(strcmp(tokenList[i+2],"NOTEQUALS") == 0){
+                        sprintf(condition, "strcmp(%s, %s) != 0", lhsValue, rhsValue+1);
+                    }
+                    else if(strcmp(tokenList[i+2],"GREATER") == 0){
+                        sprintf(condition, "strcmp(%s, %s) > 0", lhsValue, rhsValue+1);
+                    }
+                    else if(strcmp(tokenList[i+2],"LESS") == 0){
+                        sprintf(condition, "strcmp(%s, %s) < 0", lhsValue, rhsValue+1);
+                    }
+                }
+                
+                
                 
                 if(conditionCount > 0){
                     if(strcmp(tokenList[i],"&&") == 0){

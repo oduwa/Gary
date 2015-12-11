@@ -18,7 +18,7 @@ void openOutputFile()
     main_output = fopen("language_run.cpp","w");
     
     fputs("#include <stdio.h>\n#include <iostream>\n#include <cstring>\n#include <cstdlib>\n#include <vector>\n#include \"Includes/constants.h\"\n#include \"Includes/BuiltInFunctions.h\"\n#include \"interpreted_functions.h\"\n\nint main(){\n\n", main_output);
-    fputs("printf(\"%sGARY:\\n\", KMAG);\n\n", main_output);
+    //fputs("printf(\"%sGARY:\\n\", KMAG);\n\n", main_output);
     fputs("long expression;\n", main_output);
     
     

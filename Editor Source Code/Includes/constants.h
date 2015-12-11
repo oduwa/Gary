@@ -13,4 +13,12 @@
 #define KEYWORD_CONFIG_FILE_PATH "Includes/keywords.kw"
 #define KEYWORD_COUNT 19
 
+static int MAX_LANG_FILE_SIZE = 5000000;
+static int MAX_STRING_SIZE = 100000;
+static int MAX_DIGIT_SIZE = 10;
+static int MAX_IDENTIFIER_SIZE = 100;
+static int MAX_TOKEN_LIST_SIZE = 100000;
+static int MAX_EXPRESSION_SIZE = 200;
+static int MAX_OPERATOR_SIZE = 20;
+
 #endif

@@ -8,7 +8,7 @@
   </information>
   <resources>
     <j2se version="1.6+" href="http://java.sun.com/products/autodl/j2se"/>
-    <jar href="GaryEditor.jar" size="85548" download="eager" />
+    <jar href="GaryEditor.jar" size="85560" download="eager" />
     <jar href="lib/richtextfx-fat-0.6.10.jar" size="675497" download="eager" />
   </resources>
   <applet-desc  width="800" height="600" main-class="com.javafx.main.NoJavaFXFallback"  name="GaryEditor" >

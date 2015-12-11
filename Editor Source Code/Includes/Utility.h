@@ -1,6 +1,9 @@
 #ifndef __Utility__
 #define __Utility__
+
 #include <iostream>
+#include <cstring>
+#include <cstdlib>
 #include <assert.h>
 
 char* readFile(const char *filename)
@@ -78,6 +81,24 @@ char** str_split(char* a_str, const char a_delim)
     }
     
     return result;
+}
+
+void lowercase(char *str)
+{
+    for(int i = 0; str[i]; i++){
+        str[i] = (char) std::tolower(str[i]);
+    }
+}
+
+//returns 0 if failed, 1 if succeeded
+int appendChar(char* s, size_t size, char c) {
+    if(strlen(s) + 1 >= size) {
+        return 0;
+    }
+    int len = strlen(s);
+    s[len] = c;
+    s[len+1] = '\0';
+    return 1;
 }
 
 #endif
